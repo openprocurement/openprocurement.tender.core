@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from openprocurement.api.validation import validate_data, validate_json_data
+from openprocurement.api.validation import validate_data, validate_json_data, ViewPermissionValidationError
 from openprocurement.api.utils import get_now  # move
 from openprocurement.api.utils import update_logging_context  # XXX tender context
 from openprocurement.tender.core.utils import calculate_business_date
@@ -227,10 +227,6 @@ def validate_LotValue_value(tender, relatedLot, value):
         raise ValidationError(u"currency of bid should be identical to currency of value of lot")
     if lot.get('value').valueAddedTaxIncluded != value.valueAddedTaxIncluded:
         raise ValidationError(u"valueAddedTaxIncluded of bid should be identical to valueAddedTaxIncluded of value of lot")
-
-
-class ViewPermissionValidationError(Exception):
-    """Base class for validation exceptions in this module."""
 
 
 #tender
