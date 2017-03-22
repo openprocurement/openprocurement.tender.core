@@ -2,6 +2,7 @@
 from openprocurement.api.validation import validate_data, validate_json_data
 from openprocurement.api.utils import get_now  # move
 from openprocurement.api.utils import update_logging_context  # XXX tender context
+from openprocurement.tender.core.utils import calculate_business_date
 from schematics.exceptions import ValidationError
 
 def validate_tender_data(request):
@@ -227,3 +228,36 @@ def validate_LotValue_value(tender, relatedLot, value):
     if lot.get('value').valueAddedTaxIncluded != value.valueAddedTaxIncluded:
         raise ValidationError(u"valueAddedTaxIncluded of bid should be identical to valueAddedTaxIncluded of value of lot")
 
+
+class ViewPermissionValidationError(Exception):
+    """Base class for validation exceptions in this module."""
+
+
+#tender
+def validate_tender_status_update_in_terminated_status(request, tender):
+    if request.authenticated_role != 'Administrator' and tender.status in ['complete', 'unsuccessful', 'cancelled']:
+        request.errors.add('body', 'data', 'Can\'t update tender in current ({}) status'.format(tender.status))
+        request.errors.status = 403
+        raise ViewPermissionValidationError
+
+
+def validate_tender_period_extension(request, tender, TENDERING_EXTRA_PERIOD):
+    if calculate_business_date(get_now(), TENDERING_EXTRA_PERIOD, context=tender) > request.validated['tender'].tenderPeriod.endDate:
+        request.errors.add('body', 'data', 'tenderPeriod should be extended by {0.days} days'.format(TENDERING_EXTRA_PERIOD))
+        request.errors.status = 403
+        raise ViewPermissionValidationError
+
+#tender documents
+def validate_operation_with_tender_document_in_not_allowed_status(request, operation):
+    if request.authenticated_role != 'auction' and request.validated['tender_status'] != 'active.tendering' or \
+       request.authenticated_role == 'auction' and request.validated['tender_status'] not in ['active.auction', 'active.qualification']:
+        request.errors.add('body', 'data', 'Can\'t {} document in current ({}) tender status'.format(operation, request.validated['tender_status']))
+        request.errors.status = 403
+        raise ViewPermissionValidationError
+
+
+def validate_tender_period_extension_in_active_tendering(request, TENDERING_EXTRA_PERIOD):
+    if request.validated['tender_status'] == 'active.tendering' and calculate_business_date(get_now(), TENDERING_EXTRA_PERIOD, request.validated['tender']) > request.validated['tender'].tenderPeriod.endDate:
+        request.errors.add('body', 'data', 'tenderPeriod should be extended by {0.days} days'.format(TENDERING_EXTRA_PERIOD))
+        request.errors.status = 403
+        raise ViewPermissionValidationError
