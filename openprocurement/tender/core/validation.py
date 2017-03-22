@@ -237,8 +237,22 @@ def validate_tender_status_update_in_terminated_status(request, tender):
         raise ViewPermissionValidationError
 
 
+def validate_update_tender_status_not_in_pre_qualification(request, tender, data):
+    if request.authenticated_role == 'tender_owner' and 'status' in data and data['status'] not in ['active.pre-qualification.stand-still', tender.status]:
+        request.errors.add('body', 'data', 'Can\'t update tender status')
+        request.errors.status = 403
+        raise ViewPermissionValidationError
+
+
 def validate_tender_period_extension(request, tender, TENDERING_EXTRA_PERIOD):
     if calculate_business_date(get_now(), TENDERING_EXTRA_PERIOD, context=tender) > request.validated['tender'].tenderPeriod.endDate:
+        request.errors.add('body', 'data', 'tenderPeriod should be extended by {0.days} days'.format(TENDERING_EXTRA_PERIOD))
+        request.errors.status = 403
+        raise ViewPermissionValidationError
+
+
+def validate_tender_period_extension_request_validated(request, TENDERING_EXTRA_PERIOD):
+    if calculate_business_date(get_now(), TENDERING_EXTRA_PERIOD, request.validated['tender']) > request.validated['tender'].tenderPeriod.endDate:
         request.errors.add('body', 'data', 'tenderPeriod should be extended by {0.days} days'.format(TENDERING_EXTRA_PERIOD))
         request.errors.status = 403
         raise ViewPermissionValidationError
