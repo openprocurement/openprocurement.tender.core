@@ -343,7 +343,7 @@ class TendersResource(APIResource):
             tender.initialize()
         if self.request.json_body['data'].get('status') == 'draft':
             tender.status = 'draft'
-        set_ownership(tender, self.request)
+        acc = set_ownership(tender, self.request)
         self.request.validated['tender'] = tender
         self.request.validated['tender_src'] = {}
         if save_tender(self.request):
@@ -354,9 +354,7 @@ class TendersResource(APIResource):
                 'Location'] = self.request.route_url('{}:Tender'.format(tender.procurementMethodType), tender_id=tender_id)
             return {
                 'data': tender.serialize(tender.status),
-                'access': {
-                    'token': tender.owner_token
-                }
+                'access': acc
             }
 
 
