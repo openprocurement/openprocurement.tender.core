@@ -293,10 +293,10 @@ class Location(BaseLocation):
                         valid_latitude.group() == str(latitude)):
                     if not -90 <= float(latitude) <= 90:
                         raise ValidationError(
-                            u"Invalid value.  Latitude must be between -90 and 90 degree.")
+                            u"Invalid value. Latitude must be between -90 and 90 degree.")
                 else:
                     raise ValidationError(
-                        u"Invalid value.  Required latitude format 12.0123456789")
+                        u"Invalid value. Required latitude format 12.0123456789")
 
     def validate_longitude(self, data, longitude):
         if longitude:
@@ -309,10 +309,10 @@ class Location(BaseLocation):
                         valid_longitude.group() == str(longitude)):
                     if not -180 <= float(longitude) <= 180:
                         raise ValidationError(
-                            u"Invalid value.  Longitude must be between -180 and 180 degree.")
+                            u"Invalid value. Longitude must be between -180 and 180 degree.")
                 else:
                     raise ValidationError(
-                        u"Invalid value.  Required longitude format 12.0123456789")
+                        u"Invalid value. Required longitude format 12.0123456789")
 
 
 class Item(BaseItem):
