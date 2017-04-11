@@ -397,5 +397,9 @@ def validate_update_contract_value(request):
             if data['value'][ro_attr] != getattr(request.context.value, ro_attr):
                 raise_operation_error(request, 'Can\'t update {} for contract value'.format(ro_attr))
         award = [a for a in tender.awards if a.id == request.context.awardID][0]
-        if data['value']['amount'] > award.value.amount:
-            raise_operation_error(request, 'Value amount should be less or equal to awarded amount ({})'.format(award.value.amount))
+        max_sum = award.value.amount
+        # If contract has additionalAwardIDs then add value.amount to mac contract value
+        if 'additionalAwardIDs' in data and data['additionalAwardIDs']:
+            max_sum += sum([award.value.amount for award in tender.awards if award['id'] in data['additionalAwardIDs']])
+        if data['value']['amount'] > max_sum:
+            raise_operation_error(request, 'Value amount should be less or equal to awarded amount ({})'.format(max_sum))
