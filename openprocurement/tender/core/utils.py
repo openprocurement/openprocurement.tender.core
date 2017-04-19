@@ -139,7 +139,7 @@ def remove_draft_bids(request):
 
 def cleanup_bids_for_cancelled_lots(tender):
     cancelled_lots = [i.id for i in tender.lots if i.status == 'cancelled']
-    if cancelled_lots:
+    if not cancelled_lots:
         return
     cancelled_items = [i.id for i in tender.items if i.relatedLot in cancelled_lots]
     cancelled_features = [
