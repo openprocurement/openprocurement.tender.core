@@ -5,9 +5,8 @@ from openprocurement.api.utils import get_now
 from openprocurement.api.constants import ROUTE_PREFIX
 from openprocurement.tender.core.constants import (
     CPV_ITEMS_CLASS_FROM)
-from openprocurement.tender.core.tests.base import BaseWebTest
-from openprocurement.tender.belowthreshold.tests.base import (
-    test_tender_data, test_organization)
+from openprocurement.tender.core.tests.base import (
+    BaseWebTest, test_tender_data, test_organization)
 
 
 class TenderResourceTest(BaseWebTest):

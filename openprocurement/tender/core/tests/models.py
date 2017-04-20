@@ -3,168 +3,28 @@ import unittest
 from uuid import uuid4
 from copy import deepcopy
 from datetime import datetime, timedelta
+
 from openprocurement.api.constants import (
-    ADDITIONAL_CLASSIFICATIONS_SCHEMES
-)
+    ADDITIONAL_CLASSIFICATIONS_SCHEMES)
 from openprocurement.tender.core.constants import (
     SERVICE_TIME, BID_LOTVALUES_VALIDATION_FROM,
-    CPV_ITEMS_CLASS_FROM, AUCTION_STAND_STILL_TIME
+    CPV_ITEMS_CLASS_FROM, AUCTION_STAND_STILL_TIME)
+from openprocurement.tender.core.tests.base import (
+    test_tender_data, test_organization, test_features,
+    test_features_item, test_bids, test_lots
 )
 from openprocurement.tender.core.models import (
-    SANDBOX_MODE, ValidationError, get_now
-)
-from openprocurement.tender.core.models import (
-    validate_lots_uniq, validate_features_uniq, validate_dkpp
+    validate_lots_uniq, validate_features_uniq,
+    validate_dkpp, ValidationError, get_now
 )
 from openprocurement.tender.core.models import (
     Tender as BaseTender, Lot, Item, Bid, Feature, Award,
     Complaint, Question, Parameter, PeriodEndRequired,
     LotValue, Contract, Document, Cancellation,
-    TenderAuctionPeriod, LotAuctionPeriod
-)
+    TenderAuctionPeriod, LotAuctionPeriod)
 
 
 now = datetime.now()
-test_organization = {
-    "name": u"Державне управління справами",
-    "identifier": {
-        "scheme": u"UA-EDR",
-        "id": u"00037256",
-        "uri": u"http://www.dus.gov.ua/"
-    },
-    "address": {
-        "countryName": u"Україна",
-        "postalCode": u"01220",
-        "region": u"м. Київ",
-        "locality": u"м. Київ",
-        "streetAddress": u"вул. Банкова, 11, корпус 1"
-    },
-    "contactPoint": {
-        "name": u"Державне управління справами",
-        "telephone": u"0440000000"
-    }
-}
-test_procuringEntity = test_organization.copy()
-test_procuringEntity["kind"] = "general"
-test_tender_data = {
-    "title": u"футляри до державних нагород",
-    "procuringEntity": test_procuringEntity,
-    "value": {
-        "amount": 500,
-        "currency": u"UAH"
-    },
-    "minimalStep": {
-        "amount": 35,
-        "currency": u"UAH"
-    },
-    "items": [
-        {
-            "description": u"футляри до державних нагород",
-            "classification": {
-                "scheme": u"CPV",
-                "id": u"44617100-9",
-                "description": u"Cartons"
-            },
-            "additionalClassifications": [
-                {
-                    "scheme": u"ДКПП",
-                    "id": u"17.21.1",
-                    "description": u"папір і картон гофровані, паперова й картонна тара"
-                }
-            ],
-            "unit": {
-                "name": u"item",
-                "code": u"44617100-9"
-            },
-            "quantity": 5,
-            "deliveryDate": {
-                "startDate": (now + timedelta(days=2)).isoformat(),
-                "endDate": (now + timedelta(days=5)).isoformat()
-            },
-            "deliveryAddress": {
-                "countryName": u"Україна",
-                "postalCode": "79000",
-                "region": u"м. Київ",
-                "locality": u"м. Київ",
-                "streetAddress": u"вул. Банкова 1"
-            }
-        }
-    ],
-    "enquiryPeriod": {
-        "endDate": (now + timedelta(days=7)).isoformat()
-    },
-    "tenderPeriod": {
-        "endDate": (now + timedelta(days=14)).isoformat()
-    },
-    "procurementMethodType": "belowThreshold",
-}
-if SANDBOX_MODE:
-    test_tender_data['procurementMethodDetails'] = 'quick, accelerator=1440'
-test_features_item = test_tender_data['items'][0].copy()
-test_features_item['id'] = "1"
-test_bids = [
-    {
-        "tenderers": [
-            test_organization
-        ],
-        "value": {
-            "amount": 469,
-            "currency": "UAH",
-            "valueAddedTaxIncluded": True
-        }
-    },
-    {
-        "tenderers": [
-            test_organization
-        ],
-        "value": {
-            "amount": 479,
-            "currency": "UAH",
-            "valueAddedTaxIncluded": True
-        }
-    }
-]
-test_lots = [
-    {
-        'title': 'lot title',
-        'description': 'lot description',
-        'value': test_tender_data['value'],
-        'minimalStep': test_tender_data['minimalStep'],
-    }
-]
-test_features = [
-    {
-        "code": "code_item",
-        "featureOf": "item",
-        "relatedItem": "1",
-        "title": u"item feature",
-        "enum": [
-            {
-                "value": 0.01,
-                "title": u"good"
-            },
-            {
-                "value": 0.02,
-                "title": u"best"
-            }
-        ]
-    },
-    {
-        "code": "code_tenderer",
-        "featureOf": "tenderer",
-        "title": u"tenderer feature",
-        "enum": [
-            {
-                "value": 0.01,
-                "title": u"good"
-            },
-            {
-                "value": 0.02,
-                "title": u"best"
-            }
-        ]
-    }
-]
 
 
 class Tender(BaseTender):
