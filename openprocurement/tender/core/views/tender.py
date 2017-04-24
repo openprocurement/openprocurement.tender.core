@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from functools import partial
+from openprocurement.tender.core.events import TenderInitializeEvent
 from openprocurement.tender.core.design import (
     FIELDS,
     tenders_by_dateModified_view, tenders_real_by_dateModified_view,
@@ -339,8 +340,7 @@ class TendersResource(APIResource):
         tender.id = tender_id
         if not tender.get('tenderID'):
             tender.tenderID = generate_tender_id(get_now(), self.db, self.server_id)
-        if hasattr(tender, "initialize"):
-            tender.initialize()
+        self.request.registry.notify(TenderInitializeEvent(tender))
         if self.request.json_body['data'].get('status') == 'draft':
             tender.status = 'draft'
         acc = set_ownership(tender, self.request)

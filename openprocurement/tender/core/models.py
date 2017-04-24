@@ -4,17 +4,18 @@ from datetime import timedelta, time, datetime
 from couchdb_schematics.document import SchematicsDocument
 from schematics.transforms import whitelist, blacklist, export_loop
 # from iso8601 import parse_date
-from zope.interface import implementer, Interface
+from zope.interface import implementer
 from pyramid.security import Allow
 from schematics.exceptions import ValidationError
 from schematics.types.compound import ModelType, DictType
 from schematics.types.serializable import serializable
 from schematics.types import (StringType, FloatType, URLType,
                               BooleanType, BaseType, MD5Type)
+from openprocurement.api.interfaces import IOPContent
 from openprocurement.api.models import (
     Revision, Organization, Model, Period,
     IsoDateTimeType, ListType, Document as BaseDocument, CPVClassification,
-    Location as BaseLocation, Contract as BaseContract, Value,
+    Location, Contract as BaseContract, Value,
     PeriodEndRequired as BasePeriodEndRequired,
     Address
 )
@@ -31,7 +32,7 @@ from openprocurement.api.constants import (
 )
 
 from openprocurement.tender.core.constants import (
-    CANT_DELETE_PERIOD_START_DATE_FROM, ITEMS_LOCATION_VALIDATION_FROM,
+    CANT_DELETE_PERIOD_START_DATE_FROM,
     BID_LOTVALUES_VALIDATION_FROM, CPV_ITEMS_CLASS_FROM
 )
 
@@ -91,7 +92,7 @@ class Guarantee(Model):
     currency = StringType(required=True, default=u'UAH', max_length=3, min_length=3)  # The currency in 3-letter ISO 4217 format.
 
 
-class ITender(Interface):
+class ITender(IOPContent):
     """ Base tender marker interface """
 
 
@@ -279,40 +280,6 @@ class LotAuctionPeriod(Period):
             decision_dates.append(tender.tenderPeriod.endDate)
             start_after = max(decision_dates)
         return rounding_shouldStartAfter(start_after, tender).isoformat()
-
-
-class Location(BaseLocation):
-    def validate_latitude(self, data, latitude):
-        if latitude:
-            parent_object = data.get('__parent__', {}).get('__parent__', {})
-            if (parent_object.get('revisions') and
-                parent_object['revisions'][0].date >
-                    ITEMS_LOCATION_VALIDATION_FROM):
-                valid_latitude = COORDINATES_REG_EXP.match(str(latitude))
-                if (valid_latitude is not None and
-                        valid_latitude.group() == str(latitude)):
-                    if not -90 <= float(latitude) <= 90:
-                        raise ValidationError(
-                            u"Invalid value. Latitude must be between -90 and 90 degree.")
-                else:
-                    raise ValidationError(
-                        u"Invalid value. Required latitude format 12.0123456789")
-
-    def validate_longitude(self, data, longitude):
-        if longitude:
-            parent_object = data.get('__parent__', {}).get('__parent__', {})
-            if (parent_object.get('revisions') and
-                parent_object['revisions'][0].date >
-                    ITEMS_LOCATION_VALIDATION_FROM):
-                valid_longitude = COORDINATES_REG_EXP.match(str(longitude))
-                if (valid_longitude is not None and
-                        valid_longitude.group() == str(longitude)):
-                    if not -180 <= float(longitude) <= 180:
-                        raise ValidationError(
-                            u"Invalid value. Longitude must be between -180 and 180 degree.")
-                else:
-                    raise ValidationError(
-                        u"Invalid value. Required longitude format 12.0123456789")
 
 
 class Item(BaseItem):
@@ -863,6 +830,10 @@ class BaseTender(SchematicsDocument, Model):
     def __repr__(self):
         return '<%s:%r@%r>' % (type(self).__name__, self.id, self.rev)
 
+    def __local_roles__(self):
+        roles = dict([('{}_{}'.format(self.owner, self.owner_token), 'tender_owner')])
+        return roles
+
     @serializable(serialized_name='id')
     def doc_id(self):
         """A property that is serialized by schematics exports."""
@@ -923,10 +894,6 @@ class Tender(BaseTender):
             role = 'edit_{}'.format(request.context.status)
         return role
 
-    def __local_roles__(self):
-        roles = dict([('{}_{}'.format(self.owner, self.owner_token), 'tender_owner')])
-        return roles
-
     def __acl__(self):
         acl = [
             (Allow, '{}_{}'.format(i.owner, i.owner_token), 'create_award_complaint')
@@ -938,7 +905,3 @@ class Tender(BaseTender):
             (Allow, '{}_{}'.format(self.owner, self.owner_token), 'edit_complaint'),
         ])
         return acl
-
-    def initialize(self):
-        now = get_now()
-        self.date = now
