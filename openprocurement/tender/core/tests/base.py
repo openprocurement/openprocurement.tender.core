@@ -124,6 +124,20 @@ class BaseTenderWebTest(BaseWebTest):
     def tearDownDS(self):
         SESSION.request = self._srequest
 
+    def edit_award_complaint(self, award_id, award_compliant_id, token, data):
+        """
+        Creates PATCH request to edit award complaint and checks response fields.
+        :param award_id: uuid4().hex
+        :param award_compliant_id: uuid4().hex
+        :param token: uuid4().hex, tender's token or award compliant token
+        :param data: dict
+        """
+        response = self.app.patch_json('/tenders/{}/awards/{}/complaints/{}?acc_token={}'.
+                                       format(self.tender_id, award_id, award_compliant_id, token), data)
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(response.content_type, 'application/json')
+        self.assertDictContainsSubset(data['data'], response.json['data'])
+
     def tearDown(self):
         if self.docservice:
             self.tearDownDS()
