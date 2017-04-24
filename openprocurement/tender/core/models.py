@@ -43,23 +43,24 @@ from openprocurement.tender.core.validation import (
     validate_LotValue_value
 )
 
-create_role = (blacklist('owner_token', 'owner', 'contracts', '_attachments', 'revisions', 'date', 'dateModified', 'doc_id', 'tenderID', 'bids', 'documents', 'awards', 'questions', 'complaints', 'auctionUrl', 'status', 'auctionPeriod', 'awardPeriod', 'procurementMethod', 'awardCriteria', 'submissionMethod', 'cancellations') + schematics_embedded_role)
-edit_role = (blacklist('status', 'procurementMethodType', 'lots', 'owner_token', 'owner', '_attachments', 'revisions', 'date', 'dateModified', 'doc_id', 'tenderID', 'bids', 'documents', 'awards', 'questions', 'complaints', 'auctionUrl', 'auctionPeriod', 'awardPeriod', 'procurementMethod', 'awardCriteria', 'submissionMethod', 'mode', 'cancellations') + schematics_embedded_role)
-view_role = (blacklist('owner_token', '_attachments', 'revisions') + schematics_embedded_role)
+create_role = (blacklist('transfer_token', 'owner_token', 'owner', 'contracts', '_attachments', 'revisions', 'date', 'dateModified', 'doc_id', 'tenderID', 'bids', 'documents', 'awards', 'questions', 'complaints', 'auctionUrl', 'status', 'auctionPeriod', 'awardPeriod', 'procurementMethod', 'awardCriteria', 'submissionMethod', 'cancellations') + schematics_embedded_role)
+edit_role = (blacklist('status', 'transfer_token', 'procurementMethodType', 'lots', 'owner_token', 'owner', '_attachments', 'revisions', 'date', 'dateModified', 'doc_id', 'tenderID', 'bids', 'documents', 'awards', 'questions', 'complaints', 'auctionUrl', 'auctionPeriod', 'awardPeriod', 'procurementMethod', 'awardCriteria', 'submissionMethod', 'mode', 'cancellations') + schematics_embedded_role)
+view_role = (blacklist('owner_token', 'transfer_token', '_attachments', 'revisions') + schematics_embedded_role)
 auction_view_role = whitelist('tenderID', 'dateModified', 'bids', 'items', 'auctionPeriod', 'minimalStep', 'auctionUrl', 'features', 'lots')
 auction_post_role = whitelist('bids')
 auction_patch_role = whitelist('auctionUrl', 'bids', 'lots')
-enquiries_role = (blacklist('owner_token', '_attachments', 'revisions', 'bids', 'numberOfBids') + schematics_embedded_role)
-auction_role = (blacklist('owner_token', '_attachments', 'revisions', 'bids', 'numberOfBids') + schematics_embedded_role)
+enquiries_role = (blacklist('owner_token', 'transfer_token', '_attachments', 'revisions', 'bids', 'numberOfBids') + schematics_embedded_role)
+auction_role = (blacklist('owner_token', 'transfer_token', '_attachments', 'revisions', 'bids', 'numberOfBids') + schematics_embedded_role)
 chronograph_role = whitelist('auctionPeriod', 'lots', 'next_check')
 chronograph_view_role = whitelist('status', 'enquiryPeriod', 'tenderPeriod', 'auctionPeriod', 'awardPeriod', 'awards', 'lots', 'doc_id', 'submissionMethodDetails', 'mode', 'numberOfBids', 'complaints')
 Administrator_role = whitelist('status', 'mode', 'procuringEntity', 'auctionPeriod', 'lots')
 
-view_bid_role = (blacklist('owner_token', 'owner') + schematics_default_role)
+view_bid_role = (blacklist('owner_token', 'owner', 'transfer_token') + schematics_default_role)
 Administrator_bid_role = whitelist('tenderers')
 
 default_lot_role = (blacklist('numberOfBids') + schematics_default_role)
 embedded_lot_role = (blacklist('numberOfBids') + schematics_embedded_role)
+
 
 class EnquiryPeriod(Period):
     clarificationsUntil = IsoDateTimeType()
@@ -474,6 +475,7 @@ class Bid(Model):
     documents = ListType(ModelType(Document), default=list())
     participationUrl = URLType()
     owner_token = StringType()
+    transfer_token = StringType()
     owner = StringType()
 
     __name__ = ''
@@ -628,6 +630,7 @@ class Complaint(Model):
     documents = ListType(ModelType(Document), default=list())
     type = StringType(choices=['claim', 'complaint'], default='claim')  # 'complaint' if status in ['pending'] or 'claim' if status in ['draft', 'claim', 'answered']
     owner_token = StringType()
+    transfer_token = StringType()
     owner = StringType()
     relatedLot = MD5Type()
     # complainant
@@ -885,6 +888,7 @@ class BaseTender(SchematicsDocument, Model):
     tenderID = StringType()  # TenderID should always be the same as the OCID. It is included to make the flattened data structure more convenient.
     owner = StringType()
     owner_token = StringType()
+    transfer_token = StringType()
     mode = StringType(choices=['test'])
     procurementMethodRationale = StringType()  # Justification of procurement method, especially in the case of Limited tendering.
     procurementMethodRationale_en = StringType()
