@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
+from webtest import TestApp
+from pyramid.paster import get_app
 
 from openprocurement.api.utils import get_now
 from openprocurement.api.constants import ROUTE_PREFIX
-from openprocurement.tender.core.tests.base import (
-    BaseWebTest, test_tender_data)
+from openprocurement.api.tests.base import PrefixedRequestClass
+from openprocurement.tender.core.tests.base import BaseWebTest
+from openprocurement.tender.belowthreshold.tests.base import test_tender_data
 
 
 class TenderResourceTest(BaseWebTest):
@@ -72,40 +75,97 @@ class TenderResourceTest(BaseWebTest):
         self.assertNotIn('descending=1', response.json['prev_page']['uri'])
         self.assertIn('limit=10', response.json['prev_page']['uri'])
 
+    def test_not_implemented_procurementMethodType(self):
+        """ Test to ensure inability of creating tender.
+        """
+        response = self.app.get('/tenders')
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(len(response.json['data']), 0)
+
+        response = self.app.post_json('/tenders', {'data': {'procurementMethodType': 'invalid_value'}}, status=415)
+        self.assertEqual(response.status, '415 Unsupported Media Type')
+        self.assertEqual(response.content_type, 'application/json')
+        self.assertEqual(response.json['status'], 'error')
+        self.assertEqual(response.json['errors'], [
+            {u'description': u'Not implemented', u'location': u'data', u'name': u'procurementMethodType'}
+        ])
+
+        for _ in range(3):
+            response = self.app.post_json('/tenders',  {'data': test_tender_data}, status=415)
+            self.assertEqual(response.status, '415 Unsupported Media Type')
+            self.assertEqual(response.content_type, 'application/json')
+            self.assertEqual(response.json['status'], 'error')
+            self.assertEqual(response.json['errors'], [
+                {u'description': u'Not implemented', u'location': u'data', u'name': u'procurementMethodType'}
+            ])
+
+        for _ in range(5):
+            response = self.app.get('/tenders')
+            self.assertEqual(response.status, '200 OK')
+            self.assertEqual(len(response.json['data']), 0)
+
+
+class BelowThresholdTenderResourceTest(BaseWebTest):
+    """ Test case that adds 'belowThreshold' plugin
+    to test tender creating.
+    """
+    initial_auth = ('Basic', ('broker', ''))
+    relative_to = os.path.dirname(__file__)
+
+    @classmethod
+    def setUpClass(self):
+        # overriding parent's method to add belowThreshold for test case
+        self.app = TestApp(
+            get_app('{}/tests.ini'.format(self.relative_to), options={
+                'plugins': 'api,tender_core,belowThreshold'}),
+            relative_to=self.relative_to
+        )
+        self.app.RequestClass = PrefixedRequestClass
+        self.couchdb_server = self.app.app.registry.couchdb_server
+        self.db = self.app.app.registry.db
+        self.db_name = self.db.name
+
     def test_listing(self):
-        self.app.app.registry.update_after = None
         response = self.app.get('/tenders')
         self.assertEqual(response.status, '200 OK')
         self.assertEqual(len(response.json['data']), 0)
 
         tenders = []
 
-        for i in range(3):
+        for _ in range(3):
             offset = get_now().isoformat()
             response = self.app.post_json('/tenders', {'data': test_tender_data})
             self.assertEqual(response.status, '201 Created')
             self.assertEqual(response.content_type, 'application/json')
             tenders.append(response.json['data'])
 
-        ids = ','.join([i['id'] for i in tenders])
+        ids = set([i['id'] for i in tenders])
+        self.assertEqual(len(ids), 3)
 
-        while True:
-            response = self.app.get('/tenders')
-            self.assertTrue(ids.startswith(','.join([i['id'] for i in response.json['data']])))
-            if len(response.json['data']) == 3:
+        for _ in range(5):
+            try:
+                response = self.app.get('/tenders')
+                self.assertEqual(len(response.json['data']), 3)
+            except AssertionError:
+                pass
+            else:
                 break
-
+        else:
+            response = self.app.get('/tenders')
+        resp_ids = set([i['id'] for i in response.json['data']])
         self.assertEqual(len(response.json['data']), 3)
-        self.assertEqual(set(response.json['data'][0]), set([u'id', u'dateModified']))
-        self.assertEqual(set([i['id'] for i in response.json['data']]), set([i['id'] for i in tenders]))
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(ids, resp_ids)
+        for i in range(3):
+            self.assertEqual(set(response.json['data'][i]),
+                             set([u'id', u'dateModified']))
+            self.assertEqual(response.json['data'][i]['dateModified'],
+                             tenders[i]['dateModified'])
         self.assertEqual(set([i['dateModified'] for i in response.json['data']]), set([i['dateModified'] for i in tenders]))
         self.assertEqual([i['dateModified'] for i in response.json['data']], sorted([i['dateModified'] for i in tenders]))
 
-        while True:
-            response = self.app.get('/tenders?offset={}'.format(offset))
-            self.assertEqual(response.status, '200 OK')
-            if len(response.json['data']) == 1:
-                break
+        response = self.app.get('/tenders?offset={}'.format(offset))
+        self.assertEqual(response.status, '200 OK')
         self.assertEqual(len(response.json['data']), 1)
 
         response = self.app.get('/tenders?limit=2')
@@ -164,12 +224,18 @@ class TenderResourceTest(BaseWebTest):
         self.assertEqual(response.status, '201 Created')
         self.assertEqual(response.content_type, 'application/json')
 
-        while True:
-            response = self.app.get('/tenders?mode=test')
-            self.assertEqual(response.status, '200 OK')
-            if len(response.json['data']) == 1:
+        for _ in range(5):
+            try:
+                response = self.app.get('/tenders?mode=test')
+                self.assertEqual(len(response.json['data']), 1)
+            except AssertionError:
+                pass
+            else:
                 break
+        else:
+            response = self.app.get('/tenders?mode=test')
         self.assertEqual(len(response.json['data']), 1)
+        self.assertEqual(response.status, '200 OK')
 
         response = self.app.get('/tenders?mode=_all_')
         self.assertEqual(response.status, '200 OK')
@@ -182,25 +248,34 @@ class TenderResourceTest(BaseWebTest):
 
         tenders = []
 
-        for i in range(3):
+        for _ in range(3):
             response = self.app.post_json('/tenders', {'data': test_tender_data})
             self.assertEqual(response.status, '201 Created')
             self.assertEqual(response.content_type, 'application/json')
             tenders.append(response.json['data'])
 
-        ids = ','.join([i['id'] for i in tenders])
+        ids = set([i['id'] for i in tenders])
+        self.assertEqual(len(ids), 3)
 
-        while True:
-            response = self.app.get('/tenders?feed=changes')
-            self.assertTrue(ids.startswith(','.join([i['id'] for i in response.json['data']])))
-            if len(response.json['data']) == 3:
+        for _ in range(5):
+            try:
+                response = self.app.get('/tenders?feed=changes')
+                self.assertEqual(len(response.json['data']), 3)
+            except AssertionError:
+                pass
+            else:
                 break
-
-        self.assertEqual(','.join([i['id'] for i in response.json['data']]), ids)
-        self.assertEqual(response.status, '200 OK')
+        else:
+            response = self.app.get('/tenders?feed=changes')
+        resp_ids = set([i['id'] for i in response.json['data']])
         self.assertEqual(len(response.json['data']), 3)
-        self.assertEqual(set(response.json['data'][0]), set([u'id', u'dateModified']))
-        self.assertEqual(set([i['id'] for i in response.json['data']]), set([i['id'] for i in tenders]))
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(ids, resp_ids)
+        for i in range(3):
+            self.assertEqual(set(response.json['data'][i]),
+                             set([u'id', u'dateModified']))
+            self.assertEqual(response.json['data'][i]['dateModified'],
+                             tenders[i]['dateModified'])
         self.assertEqual(set([i['dateModified'] for i in response.json['data']]), set([i['dateModified'] for i in tenders]))
         self.assertEqual([i['dateModified'] for i in response.json['data']], sorted([i['dateModified'] for i in tenders]))
 
@@ -260,12 +335,18 @@ class TenderResourceTest(BaseWebTest):
         self.assertEqual(response.status, '201 Created')
         self.assertEqual(response.content_type, 'application/json')
 
-        while True:
-            response = self.app.get('/tenders?feed=changes&mode=test')
-            self.assertEqual(response.status, '200 OK')
-            if len(response.json['data']) == 1:
+        for _ in range(5):
+            try:
+                response = self.app.get('/tenders?feed=changes&mode=test')
+                self.assertEqual(len(response.json['data']), 1)
+            except AssertionError:
+                pass
+            else:
                 break
+        else:
+            response = self.app.get('/tenders?feed=changes&mode=test')
         self.assertEqual(len(response.json['data']), 1)
+        self.assertEqual(response.status, '200 OK')
 
         response = self.app.get('/tenders?feed=changes&mode=_all_')
         self.assertEqual(response.status, '200 OK')
@@ -280,7 +361,7 @@ class TenderResourceTest(BaseWebTest):
         data = test_tender_data.copy()
         data.update({'status': 'draft'})
 
-        for i in range(3):
+        for _ in range(3):
             response = self.app.post_json('/tenders', {'data': test_tender_data})
             self.assertEqual(response.status, '201 Created')
             self.assertEqual(response.content_type, 'application/json')
@@ -289,16 +370,27 @@ class TenderResourceTest(BaseWebTest):
             self.assertEqual(response.status, '201 Created')
             self.assertEqual(response.content_type, 'application/json')
 
-        ids = ','.join([i['id'] for i in tenders])
+        ids = set([i['id'] for i in tenders])
+        self.assertEqual(len(ids), 3)
 
-        while True:
-            response = self.app.get('/tenders')
-            self.assertTrue(ids.startswith(','.join([i['id'] for i in response.json['data']])))
-            if len(response.json['data']) == 3:
+        for _ in range(5):
+            try:
+                response = self.app.get('/tenders')
+                self.assertEqual(len(response.json['data']), 3)
+            except AssertionError:
+                pass
+            else:
                 break
-
+        else:
+            response = self.app.get('/tenders')
+        resp_ids = set([i['id'] for i in response.json['data']])
         self.assertEqual(len(response.json['data']), 3)
-        self.assertEqual(set(response.json['data'][0]), set([u'id', u'dateModified']))
-        self.assertEqual(set([i['id'] for i in response.json['data']]), set([i['id'] for i in tenders]))
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(ids, resp_ids)
+        for i in range(3):
+            self.assertEqual(set(response.json['data'][i]),
+                             set([u'id', u'dateModified']))
+            self.assertEqual(response.json['data'][i]['dateModified'],
+                             tenders[i]['dateModified'])
         self.assertEqual(set([i['dateModified'] for i in response.json['data']]), set([i['dateModified'] for i in tenders]))
         self.assertEqual([i['dateModified'] for i in response.json['data']], sorted([i['dateModified'] for i in tenders]))
