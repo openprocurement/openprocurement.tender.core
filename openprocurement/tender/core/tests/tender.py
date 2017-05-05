@@ -104,15 +104,35 @@ class TenderResourceTest(BaseWebTest):
 
 
 class BelowThresholdTenderResourceTest(BaseWebTest):
-    """ Test case that adds 'belowThreshold' plugin
-    to test tender creating.
+    """
+    Test case that:
+        - checks inability of creating tender without extra plugins
+        - checks creating tender with 'belowThreshold' plugin
     """
     initial_auth = ('Basic', ('broker', ''))
     relative_to = os.path.dirname(__file__)
 
-    @classmethod
-    def setUpClass(self):
-        # overriding parent's method to add belowThreshold for test case
+    def setUp(self):
+        # default set up without extra plugins
+        super(BelowThresholdTenderResourceTest, self).setUp()
+
+        # test inability of creating tender
+        response = self.app.get('/tenders')
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(len(response.json['data']), 0)
+
+        response = self.app.post_json('/tenders',  {'data': test_tender_data}, status=415)
+        self.assertEqual(response.status, '415 Unsupported Media Type')
+        self.assertEqual(response.content_type, 'application/json')
+        self.assertEqual(response.json['status'], 'error')
+        self.assertEqual(response.json['errors'], [
+            {u'description': u'Not implemented', u'location': u'data', u'name': u'procurementMethodType'}
+        ])
+        response = self.app.get('/tenders')
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(len(response.json['data']), 0)
+
+        # set up with 'belowThreshold' plugin
         self.app = TestApp(
             get_app('{}/tests.ini'.format(self.relative_to), options={
                 'plugins': 'api,tender_core,belowThreshold'}),
@@ -122,6 +142,8 @@ class BelowThresholdTenderResourceTest(BaseWebTest):
         self.couchdb_server = self.app.app.registry.couchdb_server
         self.db = self.app.app.registry.db
         self.db_name = self.db.name
+
+        super(BelowThresholdTenderResourceTest, self).setUp()
 
     def test_listing(self):
         response = self.app.get('/tenders')
