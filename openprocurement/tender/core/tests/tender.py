@@ -90,19 +90,17 @@ class TenderResourceTest(BaseWebTest):
             {u'description': u'Not implemented', u'location': u'data', u'name': u'procurementMethodType'}
         ])
 
-        for _ in range(3):
-            response = self.app.post_json('/tenders',  {'data': test_tender_data}, status=415)
-            self.assertEqual(response.status, '415 Unsupported Media Type')
-            self.assertEqual(response.content_type, 'application/json')
-            self.assertEqual(response.json['status'], 'error')
-            self.assertEqual(response.json['errors'], [
-                {u'description': u'Not implemented', u'location': u'data', u'name': u'procurementMethodType'}
-            ])
+        response = self.app.post_json('/tenders',  {'data': test_tender_data}, status=415)
+        self.assertEqual(response.status, '415 Unsupported Media Type')
+        self.assertEqual(response.content_type, 'application/json')
+        self.assertEqual(response.json['status'], 'error')
+        self.assertEqual(response.json['errors'], [
+            {u'description': u'Not implemented', u'location': u'data', u'name': u'procurementMethodType'}
+        ])
 
-        for _ in range(5):
-            response = self.app.get('/tenders')
-            self.assertEqual(response.status, '200 OK')
-            self.assertEqual(len(response.json['data']), 0)
+        response = self.app.get('/tenders')
+        self.assertEqual(response.status, '200 OK')
+        self.assertEqual(len(response.json['data']), 0)
 
 
 class BelowThresholdTenderResourceTest(BaseWebTest):
@@ -143,18 +141,12 @@ class BelowThresholdTenderResourceTest(BaseWebTest):
         self.assertEqual(len(ids), 3)
 
         for _ in range(5):
-            try:
-                response = self.app.get('/tenders')
-                self.assertEqual(len(response.json['data']), 3)
-            except AssertionError:
-                pass
-            else:
-                break
-        else:
             response = self.app.get('/tenders')
+            self.assertEqual(response.status, '200 OK')
+            if len(response.json['data']) == 3:
+                break
         resp_ids = set([i['id'] for i in response.json['data']])
         self.assertEqual(len(response.json['data']), 3)
-        self.assertEqual(response.status, '200 OK')
         self.assertEqual(ids, resp_ids)
         for i in range(3):
             self.assertEqual(set(response.json['data'][i]),
@@ -225,17 +217,11 @@ class BelowThresholdTenderResourceTest(BaseWebTest):
         self.assertEqual(response.content_type, 'application/json')
 
         for _ in range(5):
-            try:
-                response = self.app.get('/tenders?mode=test')
-                self.assertEqual(len(response.json['data']), 1)
-            except AssertionError:
-                pass
-            else:
-                break
-        else:
             response = self.app.get('/tenders?mode=test')
+            self.assertEqual(response.status, '200 OK')
+            if len(response.json['data']) == 1:
+                break
         self.assertEqual(len(response.json['data']), 1)
-        self.assertEqual(response.status, '200 OK')
 
         response = self.app.get('/tenders?mode=_all_')
         self.assertEqual(response.status, '200 OK')
@@ -258,18 +244,12 @@ class BelowThresholdTenderResourceTest(BaseWebTest):
         self.assertEqual(len(ids), 3)
 
         for _ in range(5):
-            try:
-                response = self.app.get('/tenders?feed=changes')
-                self.assertEqual(len(response.json['data']), 3)
-            except AssertionError:
-                pass
-            else:
-                break
-        else:
             response = self.app.get('/tenders?feed=changes')
+            self.assertEqual(response.status, '200 OK')
+            if len(response.json['data']) == 3:
+                break
         resp_ids = set([i['id'] for i in response.json['data']])
         self.assertEqual(len(response.json['data']), 3)
-        self.assertEqual(response.status, '200 OK')
         self.assertEqual(ids, resp_ids)
         for i in range(3):
             self.assertEqual(set(response.json['data'][i]),
@@ -336,17 +316,11 @@ class BelowThresholdTenderResourceTest(BaseWebTest):
         self.assertEqual(response.content_type, 'application/json')
 
         for _ in range(5):
-            try:
-                response = self.app.get('/tenders?feed=changes&mode=test')
-                self.assertEqual(len(response.json['data']), 1)
-            except AssertionError:
-                pass
-            else:
-                break
-        else:
             response = self.app.get('/tenders?feed=changes&mode=test')
+            self.assertEqual(response.status, '200 OK')
+            if len(response.json['data']) == 1:
+                break
         self.assertEqual(len(response.json['data']), 1)
-        self.assertEqual(response.status, '200 OK')
 
         response = self.app.get('/tenders?feed=changes&mode=_all_')
         self.assertEqual(response.status, '200 OK')
@@ -374,18 +348,12 @@ class BelowThresholdTenderResourceTest(BaseWebTest):
         self.assertEqual(len(ids), 3)
 
         for _ in range(5):
-            try:
-                response = self.app.get('/tenders')
-                self.assertEqual(len(response.json['data']), 3)
-            except AssertionError:
-                pass
-            else:
-                break
-        else:
             response = self.app.get('/tenders')
+            self.assertEqual(response.status, '200 OK')
+            if len(response.json['data']) == 3:
+                break
         resp_ids = set([i['id'] for i in response.json['data']])
         self.assertEqual(len(response.json['data']), 3)
-        self.assertEqual(response.status, '200 OK')
         self.assertEqual(ids, resp_ids)
         for i in range(3):
             self.assertEqual(set(response.json['data'][i]),
