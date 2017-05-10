@@ -2,17 +2,16 @@
 import os
 import unittest
 from webtest import TestApp
-from datetime import datetime, timedelta
+from datetime import datetime
 from pyramid import testing
 from pyramid.paster import get_app
 from pyramid.tests.test_authentication import TestBasicAuthAuthenticationPolicy
 
 from openprocurement.api.auth import AuthenticationPolicy
-from openprocurement.api.utils import apply_data_patch
 from openprocurement.api.constants import SANDBOX_MODE
 from openprocurement.api.tests.base import PrefixedRequestClass
 from openprocurement.tender.core.tests.base import (
-    BaseWebTest, BaseTenderWebTest
+    BaseWebTest, TenderContentWebTest
 )
 from openprocurement.tender.belowthreshold.tests.base import (
     test_tender_data, test_organization
@@ -77,69 +76,6 @@ class AccreditationTenderTest(BaseWebTest):
 
         response = self.app.post_json('/tenders', {"data": test_tender_data_mode_test})
         self.assertEqual(response.status, '201 Created')
-
-
-class TenderContentWebTest(BaseTenderWebTest):
-    initial_auth = ('Basic', ('broker', ''))
-    initial_data = test_tender_data
-    relative_to = os.path.dirname(__file__)
-
-    def set_status(self, status, extra=None):
-        data = {'status': status}
-        if status == 'active.enquiries':
-            data.update({
-                "enquiryPeriod": {
-                    "startDate": (now).isoformat(),
-                    "endDate": (now + timedelta(days=7)).isoformat()
-                },
-                "tenderPeriod": {
-                    "startDate": (now + timedelta(days=7)).isoformat(),
-                    "endDate": (now + timedelta(days=14)).isoformat()
-                }
-            })
-        elif status == 'active.tendering':
-            data.update({
-                "enquiryPeriod": {
-                    "startDate": (now - timedelta(days=10)).isoformat(),
-                    "endDate": (now).isoformat()
-                },
-                "tenderPeriod": {
-                    "startDate": (now).isoformat(),
-                    "endDate": (now + timedelta(days=7)).isoformat()
-                }
-            })
-        if extra:
-            data.update(extra)
-
-        tender = self.db.get(self.tender_id)
-        tender.update(apply_data_patch(tender, data))
-        self.db.save(tender)
-
-        authorization = self.app.authorization
-        self.app.authorization = ('Basic', ('chronograph', ''))
-        #response = self.app.patch_json('/tenders/{}'.format(self.tender_id), {'data': {'id': self.tender_id}})
-        response = self.app.get('/tenders/{}'.format(self.tender_id))
-        self.app.authorization = authorization
-        self.assertEqual(response.status, '200 OK')
-        self.assertEqual(response.content_type, 'application/json')
-        return response
-
-    def setUp(self):
-        super(TenderContentWebTest, self).setUp()
-        self.create_tender()
-
-    @classmethod
-    def setUpClass(self):
-        # set up with 'belowThreshold' plugin
-        self.app = TestApp(
-            get_app('{}/tests.ini'.format(self.relative_to), options={
-                'plugins': 'api,tender_core,belowThreshold'}),
-            relative_to=self.relative_to
-        )
-        self.app.RequestClass = PrefixedRequestClass
-        self.couchdb_server = self.app.app.registry.couchdb_server
-        self.db = self.app.app.registry.db
-        self.db_name = self.db.name
 
 
 class AccreditationTenderQuestionTest(TenderContentWebTest):
