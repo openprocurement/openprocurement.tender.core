@@ -1,17 +1,14 @@
 # -*- coding: utf-8 -*-
 import os
 import unittest
-from webtest import TestApp
 from datetime import datetime
 from pyramid import testing
-from pyramid.paster import get_app
 from pyramid.tests.test_authentication import TestBasicAuthAuthenticationPolicy
 
 from openprocurement.api.auth import AuthenticationPolicy
 from openprocurement.api.constants import SANDBOX_MODE
-from openprocurement.api.tests.base import PrefixedRequestClass
 from openprocurement.tender.core.tests.base import (
-    BaseWebTest, TenderContentWebTest
+    TenderContentWebTest
 )
 from openprocurement.tender.belowthreshold.tests.base import (
     test_tender_data, test_organization
@@ -39,21 +36,8 @@ class AuthTest(TestBasicAuthAuthenticationPolicy):
         self.assertEqual(policy.unauthenticated_userid(request), 'chrisr')
 
 
-class AccreditationTenderTest(BaseWebTest):
+class AccreditationTenderTest(TenderContentWebTest):
     relative_to = os.path.dirname(__file__)
-
-    @classmethod
-    def setUpClass(self):
-        # set up with 'belowThreshold' plugin
-        self.app = TestApp(
-            get_app('{}/tests.ini'.format(self.relative_to), options={
-                'plugins': 'api,tender_core,belowThreshold'}),
-            relative_to=self.relative_to
-        )
-        self.app.RequestClass = PrefixedRequestClass
-        self.couchdb_server = self.app.app.registry.couchdb_server
-        self.db = self.app.app.registry.db
-        self.db_name = self.db.name
 
     def test_create_tender_accreditation(self):
         self.app.authorization = ('Basic', ('broker1', ''))
@@ -61,7 +45,6 @@ class AccreditationTenderTest(BaseWebTest):
         self.assertEqual(response.status, '201 Created')
         self.assertEqual(response.content_type, 'application/json')
 
-        # for broker in ['broker2', 'broker3', 'broker4']:
         self.app.authorization = ('Basic', ('broker2', ''))
         response = self.app.post_json('/tenders', {"data": test_tender_data}, status=403)
         self.assertEqual(response.status, '403 Forbidden')
@@ -86,7 +69,6 @@ class AccreditationTenderQuestionTest(TenderContentWebTest):
         self.assertEqual(response.status, '201 Created')
         self.assertEqual(response.content_type, 'application/json')
 
-        # for broker in ['broker1', 'broker3', 'broker4']:
         self.app.authorization = ('Basic', ('broker1', ''))
         response = self.app.post_json('/tenders/{}/questions'.format(self.tender_id),
                                       {'data': {'title': 'question title', 'description': 'question description', 'author': test_organization}},
@@ -125,7 +107,6 @@ class AccreditationTenderBidTest(TenderContentWebTest):
         self.assertEqual(response.status, '201 Created')
         self.assertEqual(response.content_type, 'application/json')
 
-        # for broker in ['broker1', 'broker3', 'broker4']:
         self.app.authorization = ('Basic', ('broker1', ''))
         response = self.app.post_json('/tenders/{}/bids'.format(self.tender_id),
                                       {'data': {'tenderers': [test_organization], "value": {"amount": 500}}},
@@ -163,7 +144,6 @@ class AccreditationTenderComplaintTest(TenderContentWebTest):
         self.assertEqual(response.status, '201 Created')
         self.assertEqual(response.content_type, 'application/json')
 
-        # for broker in ['broker1', 'broker3', 'broker4']:
         self.app.authorization = ('Basic', ('broker1', ''))
         response = self.app.post_json('/tenders/{}/complaints'.format(self.tender_id),
                                       {'data': {'title': 'complaint title', 'description': 'complaint description', 'author': test_organization, 'status': 'claim'}},
