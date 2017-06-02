@@ -2,7 +2,6 @@
 import json
 import os
 from copy import deepcopy
-from datetime import datetime, timedelta
 from uuid import uuid4
 from requests.models import Response
 from base64 import b64encode
@@ -11,9 +10,6 @@ from webtest import TestApp
 
 from openprocurement.api.utils import SESSION, apply_data_patch
 from openprocurement.api.tests.base import BaseWebTest
-
-
-now = datetime.now()
 
 
 class BaseTenderWebTest(BaseWebTest):
