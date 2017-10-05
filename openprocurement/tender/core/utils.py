@@ -138,7 +138,7 @@ def remove_draft_bids(request):
         tender.bids = [bid for bid in tender.bids if getattr(bid, "status", "active") != "draft"]
 
 
-def cleanup_bids_for_cancelled_lots(tender):
+def cleanup_bids_for_cancelled_lots(tender):  # pragma: no cover
     cancelled_lots = [i.id for i in tender.lots if i.status == 'cancelled']
     if cancelled_lots:
         return
