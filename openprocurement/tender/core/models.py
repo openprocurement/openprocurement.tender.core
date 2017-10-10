@@ -794,6 +794,7 @@ class BaseTender(SchematicsDocument, Model):
     description_ru = StringType()
     date = IsoDateTimeType()
     dateModified = IsoDateTimeType()
+    funders = ListType(ModelType(Organization), required=False)
     tenderID = StringType()  # TenderID should always be the same as the OCID. It is included to make the flattened data structure more convenient.
     owner = StringType()
     owner_token = StringType()
