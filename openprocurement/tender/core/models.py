@@ -354,7 +354,7 @@ class Contract(BaseContract):
 
     def validate_mergedInto(self, data, value):
         if data['status'] == 'merged':
-            if value not in [contract['id'] for contract in data['__parent__'].contract]:
+            if value not in [contract['id'] for contract in data['__parent__'].contracts]:
                 raise ValidationError('mergedInto must be id one of tender contract')
 
             if value == data['id']:
