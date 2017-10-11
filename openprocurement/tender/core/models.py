@@ -309,7 +309,10 @@ class Contract(BaseContract):
 
     value = ModelType(Value)
     awardID = StringType(required=True)
+    status = StringType(choices=['pending', 'terminated', 'active', 'cancelled', 'merged'], default='pending')
     documents = ListType(ModelType(Document), default=list())
+    additionalAwardIDs = ListType(MD5Type, default=list())
+    mergedInto = MD5Type()
 
     def validate_awardID(self, data, awardID):
         if awardID and isinstance(data['__parent__'], Model) and awardID not in [i.id for i in data['__parent__'].awards]:
@@ -322,6 +325,54 @@ class Contract(BaseContract):
                 raise ValidationError(u"Contract signature date should be after award complaint period end date ({})".format(award.complaintPeriod.endDate.isoformat()))
             if value > get_now():
                 raise ValidationError(u"Contract signature date can't be in the future")
+
+    def validate_additionalAwardIDs(self, data, value):
+        if value and isinstance(data['__parent__'], Model):
+            # Get all awards which in validate_additionalAwardIDs
+            contract_award = [award for award in data['__parent__'].awards if award['id'] == data['awardID']][0]
+            awards = [award for award in data['__parent__'].awards if award['id'] in value]
+
+            if len(awards) < len(value):
+                raise ValidationError('id must be one of award id')
+
+            for additional_award in awards:
+                if additional_award['id'] == data['awardID']:
+                    raise ValidationError('Can\'t merge itself')
+
+                # Check that award has status active
+                if additional_award['status'] != 'active':
+                    raise ValidationError('awards must has status active')
+
+                # Check that for all additional awards have contract
+                for contract in data['__parent__'].contracts:
+                    if contract['awardID'] == additional_award['id']:
+                        break
+                else:
+                    raise ValidationError('Can\'t found contract for award {}'.format(additional_award['id']))
+
+                # Check that all award suppliers id is the same
+                award_suppliers_id = awards[0]['suppliers'][0]['identifier']['id']
+                contract_award_suppliers_id = contract_award['suppliers'][0]['identifier']['id']
+
+                if any([len(set(award['suppliers'][0]['identifier']['id'] for award in awards)) > 1,
+                        award_suppliers_id != contract_award_suppliers_id]):
+                    raise ValidationError('Awards must have same suppliers id')
+
+                # Check that all award suppliers schema is the same
+                award_suppliers_scheme = awards[0]['suppliers'][0]['identifier']['scheme']
+                contract_award_suppliers_scheme = contract_award[0]['identifier']['scheme']
+
+                if any([len(set(award['suppliers'][0]['identifier']['scheme'] for award in awards)) > 1,
+                        award_suppliers_scheme != contract_award_suppliers_scheme]):
+                    raise ValidationError('Awards must have same suppliers schema')
+
+    def validate_mergedInto(self, data, value):
+        if data['status'] == 'merged':
+            if value not in [contract['id'] for contract in data['__parent__'].contracts]:
+                raise ValidationError('mergedInto must be id one of tender contract')
+
+            if value == data['id']:
+                raise ValidationError('mergedInto can\'t be id of current contract')
 
 
 class LotValue(Model):
