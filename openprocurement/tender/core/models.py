@@ -295,6 +295,7 @@ class Contract(BaseContract):
 
     value = ModelType(Value)
     awardID = StringType(required=True)
+    status = StringType(choices=['pending', 'terminated', 'active', 'cancelled', 'merged'], default='pending')
     documents = ListType(ModelType(Document), default=list())
     additionalAwardIDs = ListType(MD5Type, default=list())
     mergedInto = MD5Type()
