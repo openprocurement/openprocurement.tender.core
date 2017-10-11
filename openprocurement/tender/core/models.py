@@ -323,6 +323,11 @@ class Contract(BaseContract):
             if value > get_now():
                 raise ValidationError(u"Contract signature date can't be in the future")
 
+    def validate_value(self, data, value):
+        if value and isinstance(data['__parent__'], Model):
+            if value.valueAddedTaxPercentage != 0 and not value.valueAddedTaxPercentage:
+                raise ValidationError({'valueAddedTaxPercentage': [u'This field is required.']})
+
 
 class LotValue(Model):
     class Options:
@@ -344,6 +349,9 @@ class LotValue(Model):
     def validate_value(self, data, value):
         if value and isinstance(data['__parent__'], Model) and data['relatedLot']:
             validate_LotValue_value(get_tender(data['__parent__']), data['relatedLot'], value)
+
+            if value.valueAddedTaxPercentage or value.valueAddedTaxPercentage == 0:
+                raise ValidationError({'valueAddedTaxPercentage': ['Rogue field']})
 
     def validate_relatedLot(self, data, relatedLot):
         if isinstance(data['__parent__'], Model) and relatedLot not in [i.id for i in get_tender(data['__parent__']).lots]:
@@ -454,6 +462,12 @@ class Bid(Model):
                     raise ValidationError(u"currency of bid should be identical to currency of value of tender")
                 if tender.get('value').valueAddedTaxIncluded != value.valueAddedTaxIncluded:
                     raise ValidationError(u"valueAddedTaxIncluded of bid should be identical to valueAddedTaxIncluded of value of tender")
+
+                if value.valueAddedTaxIncluded and (value.valueAddedTaxPercentage >= 0) is False:
+                    raise ValidationError({'valueAddedTaxPercentage': [u'This field is required.']})
+
+                if (value.valueAddedTaxPercentage >= 0) is False or value.valueAddedTaxIncluded is False:
+                    value.valueAddedTaxPercentage = 0
 
     def validate_parameters(self, data, parameters):
         if isinstance(data['__parent__'], Model):
@@ -698,6 +712,11 @@ class Award(BaseAward):
             if lotID and lotID not in [i.id for i in data['__parent__'].lots]:
                 raise ValidationError(u"lotID should be one of lots")
 
+    def validate_value(self, data, value):
+        if value and isinstance(data['__parent__'], Model):
+            if value.valueAddedTaxPercentage != 0 and not value.valueAddedTaxPercentage:
+                value.valueAddedTaxPercentage = 0
+
 
 class FeatureValue(Model):
     value = FloatType(required=True, min_value=0.0, max_value=0.3)
@@ -791,10 +810,18 @@ class Lot(BaseLot):
                           currency=self.__parent__.value.currency,
                           valueAddedTaxIncluded=self.__parent__.value.valueAddedTaxIncluded))
 
+    def validate_value(self, data, value):
+        if value and isinstance(data['__parent__'], Model):
+            if value.valueAddedTaxPercentage or value.valueAddedTaxPercentage == 0:
+                raise ValidationError({'valueAddedTaxPercentage': ['Rogue field']})
+
     def validate_minimalStep(self, data, value):
         if value and value.amount and data.get('value'):
             if data.get('value').amount < value.amount:
                 raise ValidationError(u"value should be less than value of lot")
+
+            if value.valueAddedTaxPercentage or value.valueAddedTaxPercentage == 0:
+                raise ValidationError({'valueAddedTaxPercentage': ['Rogue field']})
 
 
 @implementer(ITender)

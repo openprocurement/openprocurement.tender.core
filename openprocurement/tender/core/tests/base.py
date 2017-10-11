@@ -108,7 +108,8 @@ class BaseTenderWebTest(BaseWebTest):
             for i in self.initial_bids:
                 if self.initial_lots:
                     i = i.copy()
-                    value = i.pop('value')
+                    value = deepcopy(i.pop('value'))
+                    value.pop('valueAddedTaxPercentage', None)
                     i['lotValues'] = [
                         {
                             'value': value,
