@@ -442,12 +442,49 @@ def validate_update_contract_value(request):
             if data['value'][ro_attr] != getattr(request.context.value, ro_attr):
                 raise_operation_error(request, 'Can\'t update {} for contract value'.format(ro_attr))
         award = [a for a in tender.awards if a.id == request.context.awardID][0]
-        if request.content_configurator.reverse_awarding_criteria:
-            if data['value']['amount'] != award.value.amount:
-                raise_operation_error(request, 'Value amount should be equal to awarded amount ({})'.format(award.value.amount))
+
+        amount = data['value']['amount']
+        amountNet = data['value']['amountNet']
+
+        contract = [c for c in tender.contracts if c.awardID == request.context.awardID][0]
+
+        if tender.value.valueAddedTaxIncluded:
+            if amount > award.value.amount:
+                raise_operation_error(
+                    request, 'Value amount should be less or equal to awarded amount ({})'.format(award.value.amount)
+                )
+
+            lower_limit = contract.value.amount - round(float(contract.value.amount) / 6, 2)
+
+            if contract.value.amountNet > amount:
+                raise_operation_error(
+                    request,
+                    'Value amount should be more or equal to amountNet ({})'.format(contract.value.amountNet)
+                )
+
+            if lower_limit > amountNet or amountNet > contract.value.amount:
+                raise_operation_error(
+                    request,
+                    'Value amountNet should be less or equal to amount ({}) but not more than 20 percent ({})'.format(
+                        contract.value.amount, lower_limit
+                    )
+                )
         else:
-            if data['value']['amount'] > award.value.amount:
-                raise_operation_error(request, 'Value amount should be less or equal to awarded amount ({})'.format(award.value.amount))
+            upper_limit = contract.value.amountNet + round(float(contract.value.amountNet) / 6, 2)
+
+            if amountNet > award.value.amount:
+                raise_operation_error(
+                    request,
+                    'Value amountNet should be less or equal to awarded amount ({})'.format(award.value.amount)
+                )
+
+            if contract.value.amountNet > amount or amount > upper_limit:
+                raise_operation_error(
+                    request,
+                    'Value amount should be more or equal to amountNet ({}) but not more then 20 percent ({})'.format(
+                        contract.value.amountNet, upper_limit
+                    )
+                )
 
 
 def validate_contract_signing(request):
