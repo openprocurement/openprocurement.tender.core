@@ -323,6 +323,11 @@ class Contract(BaseContract):
             if value > get_now():
                 raise ValidationError(u"Contract signature date can't be in the future")
 
+    def validate_value(self, data, value):
+        if value and isinstance(data['__parent__'], Model):
+            if not value.amountNet:
+                value.amountNet = value.amount
+
 
 class LotValue(Model):
     class Options:
