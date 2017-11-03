@@ -6,22 +6,24 @@ from mock import patch, MagicMock, call
 from schematics.transforms import wholelist
 from schematics.types import StringType
 from pyramid.exceptions import URLDecodeError
+from uuid import uuid4
 from openprocurement.tender.core.utils import (
     generate_tender_id, tender_serialize, tender_from_data,
     register_tender_procurementMethodType, calculate_business_date,
     isTender, SubscribersPicker, extract_tender, has_unanswered_complaints,
-    has_unanswered_questions
+    has_unanswered_questions, remove_draft_bids, save_tender, apply_patch
 )
 from openprocurement.api.constants import TZ
 from openprocurement.tender.core.models import (
-    Tender as BaseTender, Lot, Complaint, Item, Question
+    Tender as BaseTender, Lot, Complaint, Item, Question, Bid
 )
 
 
 class Tender(BaseTender):
     class Options:
         roles = {
-            'draft': wholelist()
+            'draft': wholelist(),
+            'plain': wholelist()
         }
     procurementMethodType = StringType(
         choices=['esco.EU', 'bellowThreshold', 'aboveThresholdEU'],
@@ -254,6 +256,47 @@ class TestUtils(unittest.TestCase):
         tender.questions[0].answer = 'No'
         self.assertEqual(False, has_unanswered_questions(tender))
         self.assertEqual(False, has_unanswered_questions(tender, False))
+
+    def test_remove_draft_bids(self):
+        tender = Tender(self.tender_data)
+        tender.bids = [Bid(), Bid({'status': 'draft'})]
+        request = MagicMock()
+        request.validated = {'tender': tender}
+
+        self.assertEqual(len(tender.bids), 2)
+        remove_draft_bids(request)
+        self.assertEqual(len(tender.bids), 1)
+        self.assertEqual(tender.bids[0].status, 'active')
+
+    def test_save_tender_without_date_obj(self):
+        tender_src = {
+            'status': 'active.tendering',
+            'title': 'Non secret purchase',
+            'date': datetime.now(TZ).isoformat()
+        }
+
+        validated_tender_data = deepcopy(self.tender_data)
+        validated_tender_data['title'] = 'Top Secret Purchase'
+        validated_tender_data['_rev'] = '1-{}'.format(uuid4().hex)
+        validated_tender_data['mode'] = 'test'
+
+        validated_tender = Tender(validated_tender_data)
+        request = MagicMock()
+        request.registry.db.save.return_value = (validated_tender.id,
+                                                 validated_tender_data['_rev'])
+        request.authenticated_userid = 'administrator'
+        request.validated = {'tender_src': tender_src,
+                             'tender': validated_tender}
+        res = save_tender(request)
+        self.assertEqual(res, True)
+
+    @patch('openprocurement.tender.core.utils.save_tender')
+    def test_apply_patch(self, mocked_save):
+        request = MagicMock()
+        request.validated = {'data': {'status': 'active.tendering'}}
+        request.context = Tender(self.tender_data)
+        apply_patch(request)
+        mocked_save.assert_called_once_with(request)
 
 
 class TestIsTender(TestUtils):
