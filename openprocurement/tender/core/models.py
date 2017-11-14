@@ -253,7 +253,7 @@ class Item(BaseItem):
 class Contract(BaseContract):
     class Options:
         roles = {
-            'create': blacklist('id', 'status', 'date', 'documents', 'dateSigned'),
+            'create': blacklist('id', 'status', 'date', 'documents', 'dateSigned', 'additionalAwardIDs'),
             'edit': blacklist('id', 'documents', 'date', 'awardID', 'suppliers', 'items', 'contractID'),
             'embedded': schematics_embedded_role,
             'view': schematics_default_role,
@@ -261,10 +261,7 @@ class Contract(BaseContract):
 
     value = ModelType(Value)
     awardID = StringType(required=True)
-    status = StringType(choices=['pending', 'terminated', 'active', 'cancelled', 'merged'], default='pending')
     documents = ListType(ModelType(Document), default=list())
-    additionalAwardIDs = ListType(MD5Type, default=list())
-    mergedInto = MD5Type()
 
     def validate_awardID(self, data, awardID):
         if awardID and isinstance(data['__parent__'], Model) and awardID not in [i.id for i in data['__parent__'].awards]:
@@ -277,6 +274,15 @@ class Contract(BaseContract):
                 raise ValidationError(u"Contract signature date should be after award complaint period end date ({})".format(award.complaintPeriod.endDate.isoformat()))
             if value > get_now():
                 raise ValidationError(u"Contract signature date can't be in the future")
+            for additional_award in [
+                award for award in data['__parent__'].awards if award['id'] in data['additionalAwardIDs']
+            ]:
+                if additional_award.complaintPeriod.endDate >= value:
+                    raise ValidationError(
+                        u"Contract signature date should be after additional awards complaint period end date ({})".format(
+                            additional_award.complaintPeriod.endDate.isoformat()
+                        )
+                    )
 
     def validate_additionalAwardIDs(self, data, value):
         if value and isinstance(data['__parent__'], Model):
@@ -303,21 +309,21 @@ class Contract(BaseContract):
                     else:
                         raise ValidationError('Can\'t found contract for award {}'.format(additional_award['id']))
 
-                # Check that all award suppliers id is the same
-                award_suppliers_id = awards[0]['suppliers'][0]['identifier']['id']
-                contract_award_suppliers_id = contract_award['suppliers'][0]['identifier']['id']
+            # Check that all award suppliers id is the same
+            award_suppliers_id = awards[0]['suppliers'][0]['identifier']['id']
+            contract_award_suppliers_id = contract_award['suppliers'][0]['identifier']['id']
 
-                if any([len(set(award['suppliers'][0]['identifier']['id'] for award in awards)) > 1,
-                        award_suppliers_id != contract_award_suppliers_id]):
-                    raise ValidationError('Awards must have same suppliers id')
+            if any([len(set(award['suppliers'][0]['identifier']['id'] for award in awards)) > 1,
+                    award_suppliers_id != contract_award_suppliers_id]):
+                raise ValidationError('Awards must have same suppliers id')
 
-                # Check that all award suppliers schema is the same
-                award_suppliers_scheme = awards[0]['suppliers'][0]['identifier']['scheme']
-                contract_award_suppliers_scheme = contract_award[0]['identifier']['scheme']
+            # Check that all award suppliers schema is the same
+            award_suppliers_scheme = awards[0]['suppliers'][0]['identifier']['scheme']
+            contract_award_suppliers_scheme = contract_award[0]['identifier']['scheme']
 
-                if any([len(set(award['suppliers'][0]['identifier']['scheme'] for award in awards)) > 1,
-                        award_suppliers_scheme != contract_award_suppliers_scheme]):
-                    raise ValidationError('Awards must have same suppliers schema')
+            if any([len(set(award['suppliers'][0]['identifier']['scheme'] for award in awards)) > 1,
+                    award_suppliers_scheme != contract_award_suppliers_scheme]):
+                raise ValidationError('Awards must have same suppliers schema')
 
     def validate_mergedInto(self, data, value):
         if data['status'] == 'merged':

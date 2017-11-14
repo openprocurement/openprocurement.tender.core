@@ -439,28 +439,51 @@ def validate_update_contract_value(request):
             if data['value']['amount'] != award.value.amount:
                 raise_operation_error(request, 'Value amount should be equal to awarded amount ({})'.format(award.value.amount))
         else:
-            if data['value']['amount'] > award.value.amount:
-                raise_operation_error(request, 'Value amount should be less or equal to awarded amount ({})'.format(award.value.amount))
+            max_sum = award.value.amount
+            # If contract has additionalAwardIDs then add value.amount to mac contract value
+
+            if 'additionalAwardIDs' in data and data['additionalAwardIDs']:
+                max_sum += sum([
+                    award.value.amount for award in tender.awards if award['id'] in data['additionalAwardIDs']
+                ])
+            if data['value']['amount'] > max_sum:
+                raise_operation_error(request, 'Value amount should be less or equal to awarded amount ({})'.format(max_sum))
 
 
 def validate_contract_signing(request):
     tender = request.validated['tender']
     data = request.validated['data']
-    if request.context.status != 'active' and 'status' in data and data['status'] == 'active':
-        award = [a for a in tender.awards if a.id == request.context.awardID][0]
-        stand_still_end = award.complaintPeriod.endDate
-        if stand_still_end > get_now():
-            raise_operation_error(request, 'Can\'t sign contract before stand-still period end ({})'.format(stand_still_end.isoformat()))
-        pending_complaints = [
-            i
-            for i in tender.complaints
-            if i.status in tender.block_complaint_status and i.relatedLot in [None, award.lotID]
-        ]
-        pending_awards_complaints = [
-            i
-            for a in tender.awards
-            for i in a.complaints
-            if i.status in tender.block_complaint_status and a.lotID == award.lotID
-        ]
-        if pending_complaints or pending_awards_complaints:
-            raise_operation_error(request, 'Can\'t sign contract before reviewing all complaints')
+    contract = request.validated['contract']
+
+    def award_valid(request, awardID, additional=False):
+        if request.context.status != 'active' and 'status' in data and data['status'] == 'active':
+            award = [a for a in tender.awards if a.id == awardID][0]
+            stand_still_end = award.complaintPeriod.endDate
+            if stand_still_end > get_now():
+                raise_operation_error(
+                    request, 'Can\'t sign contract before stand-still{} period end ({})'.format(
+                        " additional awards" if additional else "", stand_still_end.isoformat()
+                    )
+                )
+            pending_complaints = [
+                i
+                for i in tender.complaints
+                if i.status in tender.block_complaint_status and i.relatedLot in [None, award.lotID]
+            ]
+            pending_awards_complaints = [
+                i
+                for a in tender.awards
+                for i in a.complaints
+                if i.status in tender.block_complaint_status and a.lotID == award.lotID
+            ]
+            if pending_complaints or pending_awards_complaints:
+                raise_operation_error(request, 'Can\'t sign contract before reviewing all complaints')
+        return True
+
+    if not award_valid(request, request.context.awardID):  # check main contract
+        return
+
+    for awardID in contract.get('additionalAwardIDs'):
+        if not award_valid(request, awardID, additional=True):  # if get errors then return them
+            return
+
