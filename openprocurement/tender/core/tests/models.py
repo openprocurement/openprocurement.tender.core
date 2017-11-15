@@ -1169,6 +1169,26 @@ class TestTender(unittest.TestCase):
         self.assertEqual(res[2], ('Allow', 'None_None', 'upload_tender_documents'))
         self.assertEqual(res[3], ('Allow', 'None_None', 'edit_complaint'))
 
+class TestQuestionModel(unittest.TestCase):
+
+    def test_serialize_pre_qualification(self):
+        question = Question()
+        with self.assertRaises(ValueError) as e:
+            question.serialize("invalid_role")
+        self.assertIsInstance(e.exception, ValueError)
+        self.assertEqual(
+            e.exception.message,
+            "Question Model has no role \"invalid_role\""
+        )
+        serialized_question = question.serialize("active.pre-qualification")
+        self.assertEqual(serialized_question['questionOf'], 'tender')
+        self.assertEqual(len(serialized_question['id']), 32)
+
+        serialized_question = question.serialize(
+            "active.pre-qualification.stand-still")
+        self.assertEqual(serialized_question['questionOf'], 'tender')
+        self.assertEqual(len(serialized_question['id']), 32)
+
 
 def suite():
     suite = unittest.TestSuite()
