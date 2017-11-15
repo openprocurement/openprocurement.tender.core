@@ -306,8 +306,8 @@ class Contract(BaseContract):
                 for contract in data['__parent__'].contracts:
                     if contract['awardID'] == additional_award['id']:
                         break
-                    else:
-                        raise ValidationError('Can\'t found contract for award {}'.format(additional_award['id']))
+                else:
+                    raise ValidationError('Can\'t found contract for award {}'.format(additional_award['id']))
 
             # Check that all award suppliers id is the same
             award_suppliers_id = awards[0]['suppliers'][0]['identifier']['id']
@@ -319,7 +319,7 @@ class Contract(BaseContract):
 
             # Check that all award suppliers schema is the same
             award_suppliers_scheme = awards[0]['suppliers'][0]['identifier']['scheme']
-            contract_award_suppliers_scheme = contract_award[0]['identifier']['scheme']
+            contract_award_suppliers_scheme = contract_award['suppliers'][0]['identifier']['scheme']
 
             if any([len(set(award['suppliers'][0]['identifier']['scheme'] for award in awards)) > 1,
                     award_suppliers_scheme != contract_award_suppliers_scheme]):
