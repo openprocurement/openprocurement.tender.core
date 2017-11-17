@@ -15,7 +15,7 @@ from openprocurement.api.interfaces import IOPContent
 from openprocurement.api.models import (
     Revision, Organization, Model, Period,
     IsoDateTimeType, ListType, Document as BaseDocument, CPVClassification,
-    Location, Contract as BaseContract, Value,
+    Location, Contract as BaseContract, Value, ValueAddedTax,
     PeriodEndRequired as BasePeriodEndRequired,
     Address
 )
@@ -259,7 +259,7 @@ class Contract(BaseContract):
             'view': schematics_default_role,
         }
 
-    value = ModelType(Value)
+    value = ModelType(ValueAddedTax)
     awardID = StringType(required=True)
     documents = ListType(ModelType(Document), default=list())
 
@@ -274,11 +274,6 @@ class Contract(BaseContract):
                 raise ValidationError(u"Contract signature date should be after award complaint period end date ({})".format(award.complaintPeriod.endDate.isoformat()))
             if value > get_now():
                 raise ValidationError(u"Contract signature date can't be in the future")
-
-    def validate_value(self, data, value):
-        if value and isinstance(data['__parent__'], Model):
-            if not value.amountNet:
-                value.amountNet = value.amount
 
 
 class LotValue(Model):
@@ -623,7 +618,7 @@ class BaseAward(Model):
     description_ru = StringType()
     status = StringType(required=True, choices=['pending', 'unsuccessful', 'active', 'cancelled'], default='pending')
     date = IsoDateTimeType(default=get_now)
-    value = ModelType(Value)
+    value = ModelType(ValueAddedTax)
     suppliers = ListType(ModelType(Organization), required=True, min_size=1, max_size=1)
     documents = ListType(ModelType(Document), default=list())
     items = ListType(ModelType(Item))

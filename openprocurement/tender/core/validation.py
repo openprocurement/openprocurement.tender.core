@@ -449,13 +449,13 @@ def validate_update_contract_value(request):
 
             lower_limit = contract.value.amount - round(float(contract.value.amount) / 6, 2)
 
-            if contract.value.amountNet > amount:
+            if (contract.value.amountNet is not None) and (contract.value.amountNet > amount):
                 raise_operation_error(
                     request,
                     'Value amount should be more or equal to amountNet ({})'.format(contract.value.amountNet)
                 )
 
-            if lower_limit > amountNet or amountNet > contract.value.amount:
+            if (amountNet is not None) and (lower_limit > amountNet or amountNet > contract.value.amount):
                 raise_operation_error(
                     request,
                     'Value amountNet should be less or equal to amount ({}) but not more than 20 percent ({})'.format(
@@ -465,13 +465,13 @@ def validate_update_contract_value(request):
         else:
             upper_limit = contract.value.amountNet + round(float(contract.value.amountNet) / 6, 2)
 
-            if amountNet > award.value.amount:
+            if (amountNet is not None) and (amountNet > award.value.amount):
                 raise_operation_error(
                     request,
                     'Value amountNet should be less or equal to awarded amount ({})'.format(award.value.amount)
                 )
 
-            if contract.value.amountNet > amount or amount > upper_limit:
+            if (contract.value.amountNet is not None) and (contract.value.amountNet > amount or amount > upper_limit):
                 raise_operation_error(
                     request,
                     'Value amount should be more or equal to amountNet ({}) but not more then 20 percent ({})'.format(
