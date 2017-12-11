@@ -15,7 +15,7 @@ from openprocurement.api.interfaces import IOPContent
 from openprocurement.api.models import (
     Revision, Organization, Model, Period,
     IsoDateTimeType, ListType, Document as BaseDocument, CPVClassification,
-    Location, Contract as BaseContract, Value, ValueAddedTax,
+    Location, Contract as BaseContract, Value, ContractValue,
     PeriodEndRequired as BasePeriodEndRequired,
     Address
 )
@@ -259,7 +259,7 @@ class Contract(BaseContract):
             'view': schematics_default_role,
         }
 
-    value = ModelType(ValueAddedTax)
+    value = ModelType(ContractValue)
     awardID = StringType(required=True)
     documents = ListType(ModelType(Document), default=list())
 
