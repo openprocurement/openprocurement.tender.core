@@ -618,7 +618,7 @@ class BaseAward(Model):
     description_ru = StringType()
     status = StringType(required=True, choices=['pending', 'unsuccessful', 'active', 'cancelled'], default='pending')
     date = IsoDateTimeType(default=get_now)
-    value = ModelType(ValueAddedTax)
+    value = ModelType(Value)
     suppliers = ListType(ModelType(Organization), required=True, min_size=1, max_size=1)
     documents = ListType(ModelType(Document), default=list())
     items = ListType(ModelType(Item))
