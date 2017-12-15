@@ -19,6 +19,7 @@ cache:
     - eggs
 before_install:
   - pip install setuptools==7.0
+  - pip install zc.buildout==2.2.5
   - python2 bootstrap.py
 install:
   - bin/buildout -N
