@@ -2,11 +2,16 @@
 import unittest
 from mock import patch, MagicMock
 from datetime import datetime, timedelta, time
-from schematics.exceptions import ModelValidationError
+from schematics.exceptions import ModelValidationError, ValidationError
 from openprocurement.tender.core.models import (
-    PeriodEndRequired, get_tender, Tender, TenderAuctionPeriod, Question
+    PeriodEndRequired, get_tender, Tender, TenderAuctionPeriod, Question, Item
 )
-from openprocurement.api.constants import TZ
+from openprocurement.api.constants import (
+    ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017,
+    ADDITIONAL_CLASSIFICATIONS_SCHEMES,
+    TZ
+)
+from openprocurement.api.models import AdditionalClassification
 
 
 class TestPeriodEndRequired(unittest.TestCase):
@@ -40,6 +45,42 @@ class TestPeriodEndRequired(unittest.TestCase):
         model.validate()
         self.assertEqual(start_date, model.startDate)
         self.assertEqual(end_date, model.endDate)
+
+
+class TestItemValidation(unittest.TestCase):
+    model = Item()
+    classification = MagicMock(spec=AdditionalClassification)
+    classification.scheme.return_value = 'fake_code'
+    date_mock = MagicMock()
+    tender = MagicMock(spec=Tender)
+    data = {'__parent__': tender, 'classification': {'id': '3364565467'}}
+    classifications = [classification]
+
+    def test_validate_item_classification(self):
+        self.tender.get.return_value = [self.date_mock]
+
+        with self.assertRaises(ValidationError) as e:
+            self.model.validate_additionalClassifications(self.data, [])
+        self.assertEqual(e.exception.message, [u"This field is required."])
+
+        with self.assertRaises(ValidationError) as e:
+            self.model.validate_additionalClassifications(self.data, self.classifications)
+        self.assertEqual(e.exception.message, [u"One of additional classifications should be one of [{0}].".format(
+            ', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES))])
+
+        self.date_mock.date.return_value = datetime(2017, 3, 1, tzinfo=TZ)
+        self.tender.get.return_value = False
+        with self.assertRaises(ValidationError) as e:
+            self.model.validate_additionalClassifications(self.data, self.classifications)
+        self.assertEqual(e.exception.message,
+                         [u"One of additional classifications should be INN."])
+
+        self.data['classification'] = {'id': '99999999-9'}
+        with self.assertRaises(ValidationError) as e:
+            self.model.validate_additionalClassifications(self.data, self.classifications)
+        self.assertEqual(e.exception.message,
+                         [u"One of additional classifications should be one of [{0}].".format(
+                             ', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017))])
 
 
 class TestModelsUtils(unittest.TestCase):
@@ -118,7 +159,7 @@ class TestTenderAuctionPeriod(unittest.TestCase):
         serialized = tender_auction_period.serialize()
         should_start_after = datetime.combine(
             (tender.tenderPeriod.endDate.date() + timedelta(days=1)),
-             time(0, tzinfo=tender.tenderPeriod.endDate.tzinfo))
+            time(0, tzinfo=tender.tenderPeriod.endDate.tzinfo))
         self.assertEqual(
             serialized,
             {'startDate': start_date.isoformat(),
@@ -130,12 +171,13 @@ class TestTenderAuctionPeriod(unittest.TestCase):
         serialized = tender_auction_period.serialize()
         should_start_after = datetime.combine(
             (tender_auction_period.startDate.date() + timedelta(days=1)),
-             time(0, tzinfo=tender_auction_period.startDate.tzinfo))
+            time(0, tzinfo=tender_auction_period.startDate.tzinfo))
         self.assertEqual(
             serialized,
             {'startDate': tender_auction_period.startDate.isoformat(),
              'shouldStartAfter': should_start_after.isoformat()}
         )
+
 
 class TestQuestionModel(unittest.TestCase):
 
@@ -161,6 +203,7 @@ class TestQuestionModel(unittest.TestCase):
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TestPeriodEndRequired))
+    suite.addTest(unittest.makeSuite(TestItemValidation))
     suite.addTest(unittest.makeSuite(TestModelsUtils))
     suite.addTest(unittest.makeSuite(TestTenderAuctionPeriod))
     return suite
