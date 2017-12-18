@@ -53,12 +53,17 @@ class TestItemValidation(unittest.TestCase):
     classification.scheme.return_value = 'fake_code'
     date_mock = MagicMock()
     tender = MagicMock(spec=Tender)
-    data = {'__parent__': tender, 'classification': {'id': '3364565467'}}
+    data = {'__parent__': tender, 'classification': {'id': '33651680-8'}}
     classifications = [classification]
 
     def test_validate_item_classification(self):
-        self.tender.get.return_value = [self.date_mock]
+        self.tender.get.return_value = []
+        # for 336 code group
+        with self.assertRaises(ValidationError) as e:
+            self.model.validate_additionalClassifications(self.data, [])
+        self.assertEqual(e.exception.message, [u"This field is required."])
 
+        self.tender.get.return_value = [self.date_mock]
         with self.assertRaises(ValidationError) as e:
             self.model.validate_additionalClassifications(self.data, [])
         self.assertEqual(e.exception.message, [u"This field is required."])
