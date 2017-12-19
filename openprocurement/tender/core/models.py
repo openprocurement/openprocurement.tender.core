@@ -28,8 +28,7 @@ from openprocurement.api.utils import get_now
 from openprocurement.api.constants import (
     SANDBOX_MODE, COORDINATES_REG_EXP,
     ADDITIONAL_CLASSIFICATIONS_SCHEMES,
-    ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017,
-    ATC_INN_CLASSIFICATIONS_FROM,
+    ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017
 )
 
 from openprocurement.tender.core.constants import (
@@ -238,17 +237,13 @@ class Item(BaseItem):
     def validate_additionalClassifications(self, data, items):
         tender = get_tender(data['__parent__'])
         tender_from_2017 = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > CPV_ITEMS_CLASS_FROM
-        tender_from_inn = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > ATC_INN_CLASSIFICATIONS_FROM
         not_cpv = data['classification']['id'] == '99999999-9'
-        inn = data['classification']['id'].startswith('336')
-        if not items and (not tender_from_2017 or tender_from_2017 and not_cpv or tender_from_inn and inn):
+        if not items and (not tender_from_2017 or tender_from_2017 and not_cpv):
             raise ValidationError(u'This field is required.')
         elif tender_from_2017 and not_cpv and items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017 for i in items]):
             raise ValidationError(u"One of additional classifications should be one of [{0}].".format(', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017)))
         elif not tender_from_2017 and items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES for i in items]):
             raise ValidationError(u"One of additional classifications should be one of [{0}].".format(', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES)))
-        if inn and items and not any([i.scheme == 'INN' for i in items]):
-            raise ValidationError(u"One of additional classifications should be INN.")
 
     def validate_relatedLot(self, data, relatedLot):
         if relatedLot and isinstance(data['__parent__'], Model) and relatedLot not in [i.id for i in get_tender(data['__parent__']).lots]:
