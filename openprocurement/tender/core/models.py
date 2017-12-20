@@ -29,12 +29,11 @@ from openprocurement.api.constants import (
     SANDBOX_MODE, COORDINATES_REG_EXP,
     ADDITIONAL_CLASSIFICATIONS_SCHEMES,
     ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017,
-    ATC_INN_CLASSIFICATIONS_FROM,
 )
 
 from openprocurement.tender.core.constants import (
     CANT_DELETE_PERIOD_START_DATE_FROM,
-    BID_LOTVALUES_VALIDATION_FROM, CPV_ITEMS_CLASS_FROM
+    BID_LOTVALUES_VALIDATION_FROM, CPV_ITEMS_CLASS_FROM, GROUP_336_FROM
 )
 
 from openprocurement.tender.core.utils import (
@@ -238,7 +237,7 @@ class Item(BaseItem):
     def validate_additionalClassifications(self, data, items):
         tender = get_tender(data['__parent__'])
         tender_from_2017 = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > CPV_ITEMS_CLASS_FROM
-        tender_from_inn = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > ATC_INN_CLASSIFICATIONS_FROM
+        tender_from_inn = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > GROUP_336_FROM
         not_cpv = data['classification']['id'] == '99999999-9'
         inn = data['classification']['id'].startswith('336')
         if not items and (not tender_from_2017 or tender_from_2017 and not_cpv or tender_from_inn and inn):
