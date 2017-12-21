@@ -446,11 +446,10 @@ def validate_update_contract_value(request):
         amount = data['value']['amount']
         amountNet = data['value']['amountNet']
 
-        lower_limit = amount - (amount / 6)
-        upper_limit = amountNet + (amountNet / 6)
-
         for mutable_attr in ('amount', 'amountNet'):
             if data['value'][mutable_attr] != getattr(contract.value, mutable_attr):
+                lower_limit = amount - (amount / 6)
+
                 if contract.value.amount != contract.value.amountNet:
                     raise_operation_error(request, 'Can\'t update {} for contract value'.format(
                         mutable_attr
@@ -480,6 +479,8 @@ def validate_update_contract_value(request):
                                 )
                             )
                 else:
+                    upper_limit = amountNet + (amountNet / 6)
+
                     if award.value.valueAddedTaxIncluded:
                         if mutable_attr == 'amount' and (amountNet > amount or amount > upper_limit):
                             raise_operation_error(
