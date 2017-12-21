@@ -448,12 +448,38 @@ def validate_update_contract_value(request):
 
         for mutable_attr in ('amount', 'amountNet'):
             if data['value'][mutable_attr] != getattr(contract.value, mutable_attr):
-                lower_limit = amount - (amount / 6)
 
                 if contract.value.amount != contract.value.amountNet:
                     raise_operation_error(request, 'Can\'t update {} for contract value'.format(
                         mutable_attr
                     ))
+
+                if mutable_attr == 'amount':
+                    if tender.value.valueAddedTaxIncluded:
+                        if 'lotID' not in award:
+                            raise_operation_error(request, 'Can\'t update {} for contract value'.format(
+                                mutable_attr
+                            ))
+                        else:
+                            lot = [l for l in tender.lots if l.id == award.lotID][0]
+                            if lot.value.valueAddedTaxIncluded:
+                                raise_operation_error(request, 'Can\'t update {} for contract value'.format(
+                                    mutable_attr
+                                ))
+                elif mutable_attr == 'amountNet':
+                    if not tender.value.valueAddedTaxIncluded:
+                        if 'lotID' not in award:
+                            raise_operation_error(request, 'Can\'t update {} for contract value'.format(
+                                mutable_attr
+                            ))
+                        else:
+                            lot = [l for l in tender.lots if l.id == award.lotID][0]
+                            if not lot.value.valueAddedTaxIncluded:
+                                raise_operation_error(request, 'Can\'t update {} for contract value'.format(
+                                    mutable_attr
+                                ))
+
+                lower_limit = amount - (amount / 6)
 
                 if tender.value.valueAddedTaxIncluded:
                     if amount > award.value.amount:
