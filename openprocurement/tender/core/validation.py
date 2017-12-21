@@ -479,7 +479,7 @@ def validate_update_contract_value(request):
                                     mutable_attr
                                 ))
 
-                lower_limit = amount - (amount / 6)
+                lower_limit = amount - ((amount * 20) / 100)
 
                 if tender.value.valueAddedTaxIncluded:
                     if amount > award.value.amount:
@@ -505,7 +505,7 @@ def validate_update_contract_value(request):
                                 )
                             )
                 else:
-                    upper_limit = amountNet + (amountNet / 6)
+                    upper_limit = amountNet + ((amountNet * 20)/ 100)
 
                     if award.value.valueAddedTaxIncluded:
                         if mutable_attr == 'amount' and (amountNet > amount or amount > upper_limit):
