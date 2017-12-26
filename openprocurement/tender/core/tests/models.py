@@ -12,7 +12,8 @@ from openprocurement.api.constants import (
     TZ
 )
 from openprocurement.api.models import AdditionalClassification
-
+from openprocurement.api.utils import get_now
+from openprocurement.tender.core.constants import GROUP_336_FROM
 
 class TestPeriodEndRequired(unittest.TestCase):
 
@@ -58,15 +59,18 @@ class TestItemValidation(unittest.TestCase):
 
     def test_validate_item_classification(self):
         self.tender.get.return_value = []
-        # for 336 code group
-        with self.assertRaises(ValidationError) as e:
-            self.model.validate_additionalClassifications(self.data, [])
-        self.assertEqual(e.exception.message, [u"This field is required."])
 
+        if get_now() > GROUP_336_FROM:
+            # for 336 code group
+            with self.assertRaises(ValidationError) as e:
+                self.model.validate_additionalClassifications(self.data, [])
+            self.assertEqual(e.exception.message, [u"This field is required."])
+ 
         self.tender.get.return_value = [self.date_mock]
-        with self.assertRaises(ValidationError) as e:
-            self.model.validate_additionalClassifications(self.data, [])
-        self.assertEqual(e.exception.message, [u"This field is required."])
+        if get_now() > GROUP_336_FROM:
+            with self.assertRaises(ValidationError) as e:
+                self.model.validate_additionalClassifications(self.data, [])
+            self.assertEqual(e.exception.message, [u"This field is required."])
 
         with self.assertRaises(ValidationError) as e:
             self.model.validate_additionalClassifications(self.data, self.classifications)
@@ -75,10 +79,11 @@ class TestItemValidation(unittest.TestCase):
 
         self.date_mock.date.return_value = datetime(2017, 3, 1, tzinfo=TZ)
         self.tender.get.return_value = False
-        with self.assertRaises(ValidationError) as e:
-            self.model.validate_additionalClassifications(self.data, self.classifications)
-        self.assertEqual(e.exception.message,
-                         [u"One of additional classifications should be INN."])
+        if get_now() > GROUP_336_FROM:
+            with self.assertRaises(ValidationError) as e:
+                self.model.validate_additionalClassifications(self.data, self.classifications)
+            self.assertEqual(e.exception.message,
+                             [u"One of additional classifications should be INN."])
 
         self.data['classification'] = {'id': '99999999-9'}
         with self.assertRaises(ValidationError) as e:
