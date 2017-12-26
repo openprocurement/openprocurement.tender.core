@@ -246,7 +246,7 @@ class Item(BaseItem):
             raise ValidationError(u"One of additional classifications should be one of [{0}].".format(', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017)))
         elif not tender_from_2017 and items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES for i in items]):
             raise ValidationError(u"One of additional classifications should be one of [{0}].".format(', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES)))
-        if inn and items and not any([i.scheme == 'INN' for i in items]):
+        if inn and items and not any([i.scheme == 'INN' for i in items]) and tender_from_inn:
             raise ValidationError(u"One of additional classifications should be INN.")
 
     def validate_relatedLot(self, data, relatedLot):
