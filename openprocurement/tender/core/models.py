@@ -288,7 +288,7 @@ class Item(BaseItem):
         tender_from_2017 = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > CPV_ITEMS_CLASS_FROM
         tender_from_inn = (tender.get('revisions')[0].date if tender.get('revisions') else get_now()) > GROUP_336_FROM
         not_cpv = data['classification']['id'] == '99999999-9'
-        inn = data['classification']['id'].startswith('336')
+        inn = data['classification']['id'].startswith('336') and data['classification']['id'] != '33695000-8'
         if not items and (not tender_from_2017 or tender_from_2017 and not_cpv or tender_from_inn and inn):
             raise ValidationError(u'This field is required.')
         elif tender_from_2017 and not_cpv and items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017 for i in items]):
