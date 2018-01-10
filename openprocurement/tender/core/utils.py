@@ -283,3 +283,10 @@ def calculate_business_date(date_obj, timedelta_obj, context=None,
                 date_obj += timedelta(1) if timedelta_obj > timedelta() else -timedelta(1)
         return date_obj
     return date_obj + timedelta_obj
+
+
+def get_operation_type(request):
+    operation = 'add' if request.method == 'POST' else 'delete'
+    if request.authenticated_role != 'Administrator' and request.method in ('PUT', 'PATCH'):
+        operation = 'update'
+    return operation
