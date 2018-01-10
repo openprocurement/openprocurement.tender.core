@@ -3,7 +3,7 @@ from openprocurement.api.validation import validate_data, validate_json_data, OP
 from openprocurement.api.constants import SANDBOX_MODE
 from openprocurement.api.utils import get_now  # move
 from openprocurement.api.utils import update_logging_context, error_handler, raise_operation_error, check_document_batch # XXX tender context
-from openprocurement.tender.core.utils import calculate_business_date
+from openprocurement.tender.core.utils import calculate_business_date, get_operation_type
 from schematics.exceptions import ValidationError
 
 
@@ -283,22 +283,22 @@ def validate_tender_document_update_not_by_author_or_tender_owner(request):
         request.errors.status = 403
         raise error_handler(request.errors)
 
+
 # bids
 def validate_bid_operation_not_in_tendering(request):
     if request.validated['tender_status'] != 'active.tendering':
-        operation = 'add' if request.method == 'POST' else 'delete'
-        if request.authenticated_role != 'Administrator' and request.method in ('PUT', 'PATCH'):
-            operation = 'update'
-        raise_operation_error(request, 'Can\'t {} bid in current ({}) tender status'.format(operation, request.validated['tender_status']))
+        raise_operation_error(request, 'Can\'t {} bid in current ({}) tender status'.format(
+            get_operation_type(request),
+            request.validated['tender_status']))
 
 
 def validate_bid_operation_period(request):
     tender = request.validated['tender']
     if tender.tenderPeriod.startDate and get_now() < tender.tenderPeriod.startDate or get_now() > tender.tenderPeriod.endDate:
-        operation = 'added' if request.method == 'POST' else 'deleted'
-        if request.authenticated_role != 'Administrator' and request.method in ('PUT', 'PATCH'):
-            operation = 'updated'
-        raise_operation_error(request, 'Bid can be {} only during the tendering period: from ({}) to ({}).'.format(operation, tender.tenderPeriod.startDate and tender.tenderPeriod.startDate.isoformat(), tender.tenderPeriod.endDate.isoformat()))
+        raise_operation_error(request, 'Can\'t {} bid if not in tendering period: from ({}) to ({}).'.format(
+            get_operation_type(request),
+            tender.tenderPeriod.startDate and tender.tenderPeriod.startDate.isoformat(),
+            tender.tenderPeriod.endDate.isoformat()))
 
 
 def validate_update_deleted_bid(request):
@@ -471,3 +471,15 @@ def validate_contract_signing(request):
         ]
         if pending_complaints or pending_awards_complaints:
             raise_operation_error(request, 'Can\'t sign contract before reviewing all complaints')
+
+
+# cancellation
+def validate_cancellation_status(request):
+    tender = request.validated['tender']
+    cancellation = request.validated['cancellation']
+    if tender.status in ['complete', 'cancelled', 'unsuccessful']:
+        raise_operation_error(request, 'Can\'t {} cancellation in current ({}) tender status'.format(
+            get_operation_type(request), tender.status))
+    if any([i.status != 'active' for i in tender.lots if i.id == cancellation.relatedLot]):
+        raise_operation_error(request, 'Can {} cancellation only in active lot status'.format(
+            get_operation_type(request)))

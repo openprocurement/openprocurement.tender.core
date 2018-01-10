@@ -652,6 +652,9 @@ class Cancellation(Model):
     documents = ListType(ModelType(Document), default=list())
     cancellationOf = StringType(required=True, choices=['tender', 'lot'], default='tender')
     relatedLot = MD5Type()
+    tenderStatus = StringType(choices=['draft', 'active.tendering', 'active.pre-qualification',
+                                       'active.pre-qualification.stand-still', 'active.auction',
+                                       'active.qualification', 'active.awarded'])
 
     def validate_relatedLot(self, data, relatedLot):
         if not relatedLot and data.get('cancellationOf') == 'lot':
