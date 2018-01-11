@@ -236,7 +236,6 @@ def validate_LotValue_value(tender, relatedLot, value):
     if not lots:
         return
     lot = lots[0]
-    print '-------------@@@@@@@@@@@@@@@@@@@@>>>>>>>>>>>>>>>>>>', lot.value.amount, value.amount
     if lot.value.amount < value.amount:
         raise ValidationError(u"value of bid should be less than value of lot")
     if lot.get('value').currency != value.currency:
