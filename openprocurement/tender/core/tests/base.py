@@ -124,16 +124,6 @@ class BaseTenderWebTest(BaseWebTest):
         if self.initial_status != status:
             self.set_status(self.initial_status)
 
-    def edit_award_complaint(self, award_id, award_compliant_id, token, data):
-        response = self.app.patch_json(
-            '/tenders/{}/awards/{}/complaints/{}?acc_token={}'.format(
-                self.tender_id, award_id, award_compliant_id, token
-            ), data
-        )
-        self.assertEqual(response.status, '200 OK')
-        self.assertEqual(response.content_type, 'application/json')
-        self.assertDictContainsSubset(data['data'], response.json['data'])
-
     def tearDownDS(self):
         SESSION.request = self._srequest
 
