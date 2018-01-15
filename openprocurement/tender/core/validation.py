@@ -427,20 +427,111 @@ def validate_update_contract_only_for_active_lots(request):
         raise_operation_error(request, 'Can update contract only in active lot status')
 
 
+def validate_contract_value_data(data, tender, contract):
+    amount = data.get('value').get('amount')
+    amountNet = data.get('value').get('amountNet')
+
+    award = [a for a in tender.awards if a.id == contract.awardID][0]
+
+    for mutable_attr in ('amount', 'amountNet'):
+        if data['value'][mutable_attr] != getattr(contract.value, mutable_attr):
+            if mutable_attr == 'amount':
+                if award.lotID:
+                    lot = [l for l in tender.lots if l.id == award.lotID][0]
+                    if lot.value.valueAddedTaxIncluded:
+                        return 'Can\'t update {} for contract value if lot with valueAddedTaxIncluded'.format(
+                            mutable_attr
+                        )
+                    if tender.value.valueAddedTaxIncluded:
+                        if amount > award.value.amount:
+                            return 'Value {} should be less or equal to awarded amount ({})'.format(
+                                mutable_attr, award.value.amount
+                            )
+                    else:
+                        if not award.value.valueAddedTaxIncluded:
+                            return 'Participant is not payer of VAT'
+                else:
+                    if tender.value.valueAddedTaxIncluded:
+                        return 'Can\'t update {} for contract value if tender with valueAddedTaxIncluded'.format(
+                            mutable_attr
+                        )
+            if mutable_attr == 'amountNet':
+                if award.lotID:
+                    lot = [l for l in tender.lots if l.id == award.lotID][0]
+                    if not lot.value.valueAddedTaxIncluded:
+                        return 'Can\'t update {} for contract value if lot without valueAddedTaxIncluded'.format(
+                            mutable_attr
+                        )
+                    if not tender.value.valueAddedTaxIncluded:
+                        if amountNet > award.value.amount:
+                            return 'Value {} should be less or equal to awarded amount ({})'.format(
+                                mutable_attr, award.value.amount
+                            )
+                    else:
+                        if not award.value.valueAddedTaxIncluded:
+                            return 'Participant is not payer of VAT'
+                else:
+                    if not tender.value.valueAddedTaxIncluded:
+                        return 'Can\'t update {} for contract value if tender without valueAddedTaxIncluded'.format(
+                            mutable_attr
+                        )
+
+            lower_limit = amount - ((amount * 20) / 100)
+
+            if tender.value.valueAddedTaxIncluded:
+                if contract.value.amountNet > amount:
+                    return 'Value amount can not be less than amountNet ({})'.format(amountNet)
+                if lower_limit > amountNet or amountNet > contract.value.amount:
+                    return 'Value amountNet should be less or equal to amount ({}) but not more ' \
+                           'than 20 percent ({})'.format(amount, lower_limit)
+            else:
+
+                upper_limit = contract.value.amountNet + ((contract.value.amountNet * 20) / 100)
+                if contract.value.amountNet > amount:
+                    return 'Value amount can not be less than amountNet ({})'.format(amountNet)
+                if (contract.value.amountNet > amount) or (amount > upper_limit):
+                    return 'Value amount should be more or equal to amountNet ({}) but not more ' \
+                           'then 20 percent ({})'.format(contract.value.amountNet, upper_limit)
+                if lower_limit > amountNet:
+                    return 'Value amountNet can not be less then 20 percent of amount ({})'.format(lower_limit)
+
+
 def validate_update_contract_value(request):
     tender = request.validated['tender']
     data = request.validated['data']
+
+    contract = request.context
+
     if data.get('value'):
         for ro_attr in ('valueAddedTaxIncluded', 'currency'):
-            if data['value'][ro_attr] != getattr(request.context.value, ro_attr):
+            if data['value'][ro_attr] != getattr(contract.value, ro_attr):
                 raise_operation_error(request, 'Can\'t update {} for contract value'.format(ro_attr))
-        award = [a for a in tender.awards if a.id == request.context.awardID][0]
+
+        award = [a for a in tender.awards if a.id == contract.awardID][0]
+
         if request.content_configurator.reverse_awarding_criteria:
             if data['value']['amount'] != award.value.amount:
-                raise_operation_error(request, 'Value amount should be equal to awarded amount ({})'.format(award.value.amount))
+                raise_operation_error(
+                    request, 'Value amount should be equal to awarded amount ({})'.format(award.value.amount)
+                )
+
+            for mutable_attr in ('amount', 'amountNet'):
+                if data['value'][mutable_attr] != getattr(contract.value, mutable_attr):
+                    if not tender.value.valueAddedTaxIncluded:
+                        raise_operation_error(
+                            request,
+                            'Can\'t update {} for contract value if tender without valueAddedTaxIncluded'.format(
+                                mutable_attr
+                            )
+                        )
+
+            operation_error = validate_contract_value_data(data, tender, contract)
+            if operation_error:
+                raise_operation_error(request, operation_error)
         else:
-            if data['value']['amount'] > award.value.amount:
-                raise_operation_error(request, 'Value amount should be less or equal to awarded amount ({})'.format(award.value.amount))
+            operation_error = validate_contract_value_data(data, tender, contract)
+            if operation_error:
+                raise_operation_error(request, operation_error)
 
 
 def validate_contract_signing(request):
