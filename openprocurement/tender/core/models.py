@@ -15,7 +15,7 @@ from openprocurement.api.interfaces import IOPContent
 from openprocurement.api.models import (
     Revision, Organization, Model, Period,
     IsoDateTimeType, ListType, Document as BaseDocument, CPVClassification,
-    Location, Contract as BaseContract, Value,
+    Location as BaseLocation, Contract as BaseContract, Value,
     PeriodEndRequired as BasePeriodEndRequired,
     Address
 )
@@ -33,9 +33,10 @@ from openprocurement.api.constants import (
 )
 
 from openprocurement.tender.core.constants import (
-    CANT_DELETE_PERIOD_START_DATE_FROM,
-    BID_LOTVALUES_VALIDATION_FROM, CPV_ITEMS_CLASS_FROM
+    CANT_DELETE_PERIOD_START_DATE_FROM, ITEMS_LOCATION_VALIDATION_FROM,
+    BID_LOTVALUES_VALIDATION_FROM, CPV_ITEMS_CLASS_FROM, GROUP_336_FROM
 )
+
 
 from openprocurement.tender.core.utils import (
     calc_auction_end_time, rounding_shouldStartAfter
@@ -247,6 +248,40 @@ class LotAuctionPeriod(Period):
         return rounding_shouldStartAfter(start_after, tender).isoformat()
 
 
+class Location(BaseLocation):
+    def validate_latitude(self, data, latitude):
+        if latitude:
+            parent_object = data.get('__parent__', {}).get('__parent__', {})
+            if (parent_object.get('revisions') and
+                parent_object['revisions'][0].date >
+                    ITEMS_LOCATION_VALIDATION_FROM):
+                valid_latitude = COORDINATES_REG_EXP.match(str(latitude))
+                if (valid_latitude is not None and
+                        valid_latitude.group() == str(latitude)):
+                    if not -90 <= float(latitude) <= 90:
+                        raise ValidationError(
+                            u"Invalid value. Latitude must be between -90 and 90 degree.")
+                else:
+                    raise ValidationError(
+                        u"Invalid value. Required latitude format 12.0123456789")
+
+    def validate_longitude(self, data, longitude):
+        if longitude:
+            parent_object = data.get('__parent__', {}).get('__parent__', {})
+            if (parent_object.get('revisions') and
+                parent_object['revisions'][0].date >
+                    ITEMS_LOCATION_VALIDATION_FROM):
+                valid_longitude = COORDINATES_REG_EXP.match(str(longitude))
+                if (valid_longitude is not None and
+                        valid_longitude.group() == str(longitude)):
+                    if not -180 <= float(longitude) <= 180:
+                        raise ValidationError(
+                            u"Invalid value. Longitude must be between -180 and 180 degree.")
+                else:
+                    raise ValidationError(
+                        u"Invalid value. Required longitude format 12.0123456789")
+
+
 class Item(BaseItem):
     """A good, service, or work to be contracted."""
     classification = ModelType(CPVClassification, required=True)
@@ -255,14 +290,18 @@ class Item(BaseItem):
         tender = get_tender(data['__parent__'])
         tender_date = tender.get('revisions')[0].date if tender.get('revisions') else get_now()
         tender_from_2017 = tender_date > CPV_ITEMS_CLASS_FROM
+        tender_from_inn = tender_date > GROUP_336_FROM
         not_cpv = data['classification']['id'] == '99999999-9'
         required = tender_date < NOT_REQUIRED_ADDITIONAL_CLASSIFICATION_FROM and not_cpv
-        if not items and (not tender_from_2017 or tender_from_2017 and not_cpv and required):
+        inn = data['classification']['id'].startswith('336') and data['classification']['id'] != '33695000-8'
+        if not items and (not tender_from_2017 or tender_from_2017 and not_cpv and required or tender_from_inn and inn):
             raise ValidationError(u'This field is required.')
         elif tender_from_2017 and not_cpv and items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017 for i in items]):
             raise ValidationError(u"One of additional classifications should be one of [{0}].".format(', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES_2017)))
         elif not tender_from_2017 and items and not any([i.scheme in ADDITIONAL_CLASSIFICATIONS_SCHEMES for i in items]):
             raise ValidationError(u"One of additional classifications should be one of [{0}].".format(', '.join(ADDITIONAL_CLASSIFICATIONS_SCHEMES)))
+        if inn and items and not any([i.scheme == 'INN' for i in items]) and tender_from_inn:
+            raise ValidationError(u"One of additional classifications should be INN.")
 
     def validate_relatedLot(self, data, relatedLot):
         if relatedLot and isinstance(data['__parent__'], Model) and relatedLot not in [i.id for i in get_tender(data['__parent__']).lots]:
