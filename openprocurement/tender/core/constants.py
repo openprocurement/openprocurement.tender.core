@@ -11,5 +11,3 @@ COMPLAINT_STAND_STILL_TIME = timedelta(days=3)
 BID_LOTVALUES_VALIDATION_FROM = datetime(2016, 10, 24, tzinfo=TZ)
 ITEMS_LOCATION_VALIDATION_FROM = datetime(2016, 11, 22, tzinfo=TZ)
 GROUP_336_FROM = datetime(2017, 12, 19, tzinfo=TZ)
-# Set non required additionalClassification for classification_id 999999-9
-NOT_REQUIRED_ADDITIONAL_CLASSIFICATION_FROM = datetime(2018, 4, 20, tzinfo=TZ)
