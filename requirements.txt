@@ -6,7 +6,7 @@ PasteDeploy==1.5.2
 PyYAML==4.2b1
 Pygments==2.7.4
 Sphinx==3.0.4
-WebOb==1.6.0a0
+WebOb==1.8.8
 WebTest==2.0.18
 beautifulsoup4==4.3.2
 boto==2.39.0
